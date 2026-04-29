@@ -66,22 +66,40 @@ class PatientController extends Controller
             }
 
             $validator = Validator::make($request->all(), [
-                'user_id'               => 'sometimes|required|integer|exists:users,id',
-                'medical_record_number' => ['sometimes', 'required', 'string', Rule::unique('patients')->ignore($id)->whereNull('deleted_at')],
-                'national_id'           => ['sometimes', 'required', 'digits:16', Rule::unique('patients')->ignore($id)->whereNull('deleted_at')],
                 'full_name'             => 'sometimes|required|string|max:255',
-                'phone_number'          => 'sometimes|required|string|max:20'
+                'phone_number'          => 'sometimes|required|string|max:20',
+                'national_id'           => ['sometimes', 'required', 'digits:16', Rule::unique('patients')->ignore($id)->whereNull('deleted_at')],
+                // Memungkinkan update email juga melalui relasi user
+                'email'                 => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($patient->user_id)->whereNull('deleted_at')],
             ]);
 
             if ($validator->fails()) {
                 return $this->errorResponse(implode(', ', $validator->errors()->all()), 422);
             }
 
-            // Perbaikan Mass Assignment: Menggunakan validated() bukan request->all()
-            $patient->update($validator->validated());
-            return $this->successResponse($patient, 'Data pasien berhasil diperbarui');
+            $validatedData = $validator->validated();
+
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($patient, $validatedData) {
+                // 1. Update tabel Patients
+                $patient->update($validatedData);
+
+                // 2. Update tabel Users jika ada perubahan Nama atau Email
+                $userData = [];
+                if (isset($validatedData['full_name'])) {
+                    $userData['name'] = $validatedData['full_name'];
+                }
+                if (isset($validatedData['email'])) {
+                    $userData['email'] = $validatedData['email'];
+                }
+
+                if (!empty($userData)) {
+                    $patient->user()->update($userData);
+                }
+
+                return $this->successResponse($patient->load('user'), 'Profil berhasil diperbarui di kedua tabel');
+            });
         } catch (Exception $e) {
-            return $this->errorResponse('Gagal memperbarui, data pasien tidak ditemukan', 404);
+            return $this->errorResponse('Gagal memperbarui: ' . $e->getMessage(), 404);
         }
     }
 
