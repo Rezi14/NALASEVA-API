@@ -69,7 +69,7 @@ class PatientController extends Controller
                 'full_name'             => 'sometimes|required|string|max:255',
                 'phone_number'          => 'sometimes|required|string|max:20',
                 'gender'                => 'sometimes|required|string|in:Laki-laki,Perempuan',
-                'birth_date'            => 'sometimes|required|date',
+                'birth_date'            => 'sometimes|required|date_format:Y-m-d',
                 'national_id'           => ['sometimes', 'required', 'digits:16', Rule::unique('patients')->ignore($id)->whereNull('deleted_at')],
                 // Memungkinkan update email juga melalui relasi user
                 'email'                 => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($patient->user_id)->whereNull('deleted_at')],

@@ -55,7 +55,7 @@ class AuthController extends Controller
             'national_id' => ['required', 'digits:16', Rule::unique('patients')->whereNull('deleted_at')],
             'phone_number' => 'required|string|max:20',
             'gender' => 'required|string|in:Laki-laki,Perempuan',
-            'birth_date' => 'required|date',
+            'birth_date' => 'required|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {
