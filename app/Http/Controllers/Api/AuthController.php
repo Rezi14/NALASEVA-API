@@ -54,6 +54,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8',
             'national_id' => ['required', 'digits:16', Rule::unique('patients')->whereNull('deleted_at')],
             'phone_number' => 'required|string|max:20',
+            'gender' => 'required|string|in:Laki-laki,Perempuan',
+            'birth_date' => 'required|date',
         ]);
 
         if ($validator->fails()) {
@@ -76,6 +78,8 @@ class AuthController extends Controller
                     'medical_record_number' => $mrn,
                     'national_id' => $request->national_id,
                     'full_name' => $request->name,
+                    'gender' => $request->gender,
+                    'birth_date' => $request->birth_date,
                     'phone_number' => $request->phone_number,
                 ]);
 
