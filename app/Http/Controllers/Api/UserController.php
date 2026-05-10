@@ -24,6 +24,8 @@ class UserController extends Controller
             'email'    => ['required', 'email', Rule::unique('users')->whereNull('deleted_at')],
             'password' => 'required|string|min:6',
             'role'     => 'required|string|in:admin,doctor,patient',
+            'phone'    => 'nullable|string|max:20',
+            'address'  => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -49,6 +51,8 @@ class UserController extends Controller
                 'email'    => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
                 'password' => 'sometimes|nullable|string|min:6',
                 'role'     => 'sometimes|required|string|in:admin,doctor,patient',
+                'phone'    => 'sometimes|nullable|string|max:20',
+                'address'  => 'sometimes|nullable|string',
             ]);
 
             if ($validator->fails()) {
