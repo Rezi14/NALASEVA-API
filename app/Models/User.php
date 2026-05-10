@@ -51,4 +51,14 @@ class User extends Authenticatable
         $user = self::onlyTrashed()->findOrFail($id);
         return $user->restore();
     }
+
+    public function patient()
+    {
+        return $this->hasOne(Patient::class);
+    }
+
+    public function doctor()
+    {
+        return $this->hasOne(Doctor::class);
+    }
 }

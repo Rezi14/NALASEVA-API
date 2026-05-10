@@ -35,6 +35,9 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // Load relations
+        $user->load(['patient', 'doctor']);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Login berhasil',
@@ -56,6 +59,7 @@ class AuthController extends Controller
             'phone_number' => 'required|string|max:20',
             'gender' => 'required|string|in:Laki-laki,Perempuan',
             'birth_date' => 'required|date_format:Y-m-d',
+            'address' => 'required|string',
         ]);
 
         if ($validator->fails()) {
@@ -81,9 +85,11 @@ class AuthController extends Controller
                     'gender' => $request->gender,
                     'birth_date' => $request->birth_date,
                     'phone_number' => $request->phone_number,
+                    'address' => $request->address,
                 ]);
 
                 $token = $user->createToken('auth_token')->plainTextToken;
+                $user->load('patient');
 
                 return response()->json([
                     'status' => 'success',
@@ -152,5 +158,17 @@ class AuthController extends Controller
         User::updateData($request->user()->id, ['fcm_token' => $request->fcm_token]);
 
         return $this->successResponse(null, 'FCM Token berhasil diperbarui');
+    }
+
+    public function profile(Request $request)
+    {
+        $user = $request->user();
+        $user->load(['patient', 'doctor']);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profil berhasil diambil',
+            'data' => $user
+        ]);
     }
 }
