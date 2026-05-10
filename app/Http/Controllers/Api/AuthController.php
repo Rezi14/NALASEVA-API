@@ -73,6 +73,8 @@ class AuthController extends Controller
                     'email' => $request->email,
                     'password' => Hash::make($request->password),
                     'role' => 'patient',
+                    'phone' => $request->phone_number,
+                    'address' => $request->address,
                 ]);
 
                 $mrn = 'NS-' . date('Ymd') . '-' . $user->id;
@@ -84,8 +86,6 @@ class AuthController extends Controller
                     'full_name' => $request->name,
                     'gender' => $request->gender,
                     'birth_date' => $request->birth_date,
-                    'phone_number' => $request->phone_number,
-                    'address' => $request->address,
                 ]);
 
                 $token = $user->createToken('auth_token')->plainTextToken;

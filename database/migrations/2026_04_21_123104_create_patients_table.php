@@ -18,7 +18,6 @@ return new class extends Migration {
             $table->string('full_name');
             $table->enum('gender', ['Laki-laki', 'Perempuan'])->nullable();
             $table->date('birth_date')->nullable();
-            $table->string('phone_number');
             $table->timestamps();
             $table->softDeletes();
         });

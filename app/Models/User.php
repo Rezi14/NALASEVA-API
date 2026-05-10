@@ -12,7 +12,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, SoftDeletes;
 
-    protected $fillable = ['name', 'email', 'password', 'role', 'fcm_token'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'phone', 'address', 'fcm_token'];
     protected $hidden = ['password'];
 
     // CRUD Logic
