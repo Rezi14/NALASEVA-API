@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth actions
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/profile', [AuthController::class, 'profile']);
+    Route::post('auth/update-profile', [AuthController::class, 'updateProfile']);
     Route::post('auth/fcm-token', [AuthController::class, 'updateFcmToken']);
 
     // Custom API Mobile Features

@@ -171,4 +171,49 @@ class AuthController extends Controller
             'data' => $user
         ]);
     }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+        
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)->whereNull('deleted_at')],
+            'phone' => 'sometimes|nullable|string|max:20',
+            'address' => 'sometimes|nullable|string',
+            'national_id' => 'sometimes|nullable|digits:16',
+            'gender' => 'sometimes|nullable|string|in:Laki-laki,Perempuan',
+            'birth_date' => 'sometimes|nullable|date_format:Y-m-d',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), 422);
+        }
+
+        try {
+            return DB::transaction(function () use ($request, $user) {
+                // Update User
+                $user->update($request->only(['name', 'email', 'phone', 'address']));
+
+                // Update Patient if applicable
+                if ($user->role === 'patient') {
+                    // Patients are NOT allowed to update their own NIK (national_id)
+                    $patientData = $request->only(['gender', 'birth_date']);
+                    if (!empty($patientData)) {
+                        $user->patient()->update($patientData);
+                    }
+                }
+
+                $user->load(['patient', 'doctor']);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Profil berhasil diperbarui',
+                    'data' => $user
+                ]);
+            });
+        } catch (\Exception $e) {
+            return $this->errorResponse('Terjadi kesalahan saat memperbarui profil: ' . $e->getMessage(), 500);
+        }
+    }
 }
