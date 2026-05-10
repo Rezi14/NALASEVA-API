@@ -33,6 +33,7 @@ class DoctorController extends Controller
             'password'       => 'required|string|min:6',
             'polyclinic_id'  => 'required|integer|exists:polyclinics,id',
             'specialization' => 'required|string|max:255',
+            'license_number' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -52,6 +53,7 @@ class DoctorController extends Controller
                     'user_id' => $user->id,
                     'polyclinic_id' => $request->polyclinic_id,
                     'specialization' => $request->specialization,
+                    'license_number' => $request->license_number,
                 ]);
 
                 return $this->successResponse(Doctor::getById($doctor->id), 'Dokter berhasil ditambahkan', 201);
@@ -68,6 +70,7 @@ class DoctorController extends Controller
                 'name'           => 'sometimes|required|string|max:255',
                 'polyclinic_id'  => 'sometimes|required|integer|exists:polyclinics,id',
                 'specialization' => 'sometimes|required|string|max:255',
+                'license_number' => 'sometimes|nullable|string|max:255',
             ]);
 
             if ($validator->fails()) {
@@ -81,7 +84,7 @@ class DoctorController extends Controller
                     $doctor->user->update(['name' => $data['name']]);
                 }
                 
-                $doctor->update(collect($data)->only(['polyclinic_id', 'specialization'])->toArray());
+                $doctor->update(collect($data)->only(['polyclinic_id', 'specialization', 'license_number'])->toArray());
                 
                 return $this->successResponse(Doctor::getById($doctor->id), 'Data dokter berhasil diperbarui');
             });
