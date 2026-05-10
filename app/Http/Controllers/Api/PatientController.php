@@ -25,19 +25,48 @@ class PatientController extends Controller
 
     public function store(Request $request) {
         $validator = Validator::make($request->all(), [
-            'user_id'               => 'required|integer|exists:users,id',
-            'medical_record_number' => ['sometimes', 'nullable', 'string', Rule::unique('patients')->whereNull('deleted_at')],
-            'national_id'           => ['required', 'digits:16', Rule::unique('patients')->whereNull('deleted_at')],
-            'full_name'             => 'required|string|max:255',
-            'phone_number'          => 'required|string|max:20'
+            'name'           => 'required|string|max:255',
+            'email'          => 'required|email|unique:users,email',
+            'password'       => 'required|string|min:6',
+            'national_id'    => ['required', 'digits:16', Rule::unique('patients')->whereNull('deleted_at')],
+            'gender'         => 'required|string|in:Laki-laki,Perempuan',
+            'birth_date'     => 'required|date_format:Y-m-d',
+            'phone'          => 'nullable|string|max:20',
+            'address'        => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
-            return $this->errorResponse(implode(', ', $validator->errors()->all()), 422);
+            return $this->errorResponse($validator->errors()->first(), 422);
         }
 
-        $data = Patient::storeData($validator->validated());
-        return $this->successResponse($data, 'Pasien berhasil didaftarkan', 201);
+        try {
+            return \DB::transaction(function() use ($request) {
+                // 1. Create User
+                $user = \App\Models\User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => \Hash::make($request->password),
+                    'role' => 'patient',
+                    'phone' => $request->phone,
+                    'address' => $request->address,
+                ]);
+
+                // 2. Create Patient
+                $patient = Patient::create([
+                    'user_id' => $user->id,
+                    'national_id' => $request->national_id,
+                    'gender' => $request->gender,
+                    'birth_date' => $request->birth_date,
+                    // Use name as full_name for backward compatibility if needed by the model
+                    'full_name' => $request->name,
+                    'phone_number' => $request->phone ?? '-',
+                ]);
+
+                return $this->successResponse($patient->load('user'), 'Pasien berhasil didaftarkan', 201);
+            });
+        } catch (Exception $e) {
+            return $this->errorResponse('Gagal menambahkan pasien: ' . $e->getMessage(), 500);
+        }
     }
 
     public function show(Request $request, $id) {

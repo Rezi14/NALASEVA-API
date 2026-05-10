@@ -23,7 +23,7 @@ class UserController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => ['required', 'email', Rule::unique('users')->whereNull('deleted_at')],
             'password' => 'required|string|min:6',
-            'role'     => 'required|string|in:admin,doctor,patient',
+            'role'     => 'required|string|in:doctor,patient', // Admin can only create Doctor or Patient
             'phone'    => 'nullable|string|max:20',
             'address'  => 'nullable|string',
         ]);
@@ -46,11 +46,15 @@ class UserController extends Controller
 
     public function update(Request $request, $id) {
         try {
+            // Restriction: User can only update themselves
+            if ($request->user()->id != $id) {
+                return $this->errorResponse('Akses ditolak. Anda tidak memiliki otoritas untuk mengubah data user lain.', 403);
+            }
+
             $validator = Validator::make($request->all(), [
                 'name'     => 'sometimes|required|string|max:255',
                 'email'    => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
                 'password' => 'sometimes|nullable|string|min:6',
-                'role'     => 'sometimes|required|string|in:admin,doctor,patient',
                 'phone'    => 'sometimes|nullable|string|max:20',
                 'address'  => 'sometimes|nullable|string',
             ]);
@@ -66,13 +70,9 @@ class UserController extends Controller
         }
     }
 
-    public function destroy($id) {
-        try {
-            User::softDeleteData($id);
-            return $this->successResponse(null, 'User berhasil dihapus');
-        } catch (Exception $e) {
-            return $this->errorResponse('Gagal menghapus, data user tidak ditemukan', 404);
-        }
+    public function destroy(Request $request, $id) {
+        // Admin cannot delete users anymore based on new policy
+        return $this->errorResponse('Akses ditolak. Kebijakan baru melarang penghapusan user oleh Admin.', 403);
     }
 
     public function restore($id) {
