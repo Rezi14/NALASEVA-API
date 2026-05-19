@@ -100,6 +100,10 @@ class QueueController extends Controller
                      $nextNumber = (int)$matches[1] + 1;
                 }
                 
+                if ($nextNumber < 1) {
+                    $nextNumber = 1;
+                }
+                
                 $queueNumber = sprintf('%s-%03d', $prefix, $nextNumber);
 
                 // Perbaikan Mass Assignment: Hanya simpan data yang tervalidasi

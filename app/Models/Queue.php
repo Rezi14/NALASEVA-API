@@ -58,12 +58,12 @@ class Queue extends Model
 
     public static function getAll()
     {
-        return self::with(['patient', 'polyclinic', 'doctor.user'])->get();
+        return self::with(['patient.user', 'polyclinic', 'doctor.user'])->get();
     }
 
     public static function getById($id)
     {
-        return self::with(['patient', 'polyclinic', 'doctor.user'])->findOrFail($id);
+        return self::with(['patient.user', 'polyclinic', 'doctor.user'])->findOrFail($id);
     }
 
     public static function storeData($data)
