@@ -55,7 +55,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->whereNull('deleted_at')],
             'password' => 'required|string|min:8',
-            'national_id' => ['required', 'digits:16', Rule::unique('patients')->whereNull('deleted_at')],
+            'national_id' => ['required', 'digits:16', Rule::unique('users')->whereNull('deleted_at')],
             'phone_number' => 'required|string|max:20',
             'gender' => 'required|string|in:Laki-laki,Perempuan',
             'birth_date' => 'required|date_format:Y-m-d',
@@ -75,6 +75,9 @@ class AuthController extends Controller
                     'role' => 'patient',
                     'phone' => $request->phone_number,
                     'address' => $request->address,
+                    'national_id' => $request->national_id,
+                    'gender' => $request->gender,
+                    'birth_date' => $request->birth_date,
                 ]);
 
                 $mrn = 'NS-' . date('Ymd') . '-' . $user->id;
@@ -82,10 +85,6 @@ class AuthController extends Controller
                 Patient::create([
                     'user_id' => $user->id,
                     'medical_record_number' => $mrn,
-                    'national_id' => $request->national_id,
-                    'full_name' => $request->name,
-                    'gender' => $request->gender,
-                    'birth_date' => $request->birth_date,
                 ]);
 
                 $token = $user->createToken('auth_token')->plainTextToken;
@@ -118,18 +117,12 @@ class AuthController extends Controller
             return $this->errorResponse($validator->errors()->first(), 422);
         }
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)
+                    ->where('national_id', $request->national_id)
+                    ->first();
 
         if (!$user) {
-            return $this->errorResponse('User tidak ditemukan', 404);
-        }
-
-        $patient = Patient::where('user_id', $user->id)
-                         ->where('national_id', $request->national_id)
-                         ->first();
-
-        if (!$patient) {
-            return $this->errorResponse('Data NIK tidak cocok dengan email yang terdaftar', 403);
+            return $this->errorResponse('Data NIK atau email tidak cocok / tidak ditemukan', 404);
         }
 
         $user->password = Hash::make($request->new_password);
@@ -192,17 +185,15 @@ class AuthController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $user) {
-                // Update User
-                $user->update($request->only(['name', 'email', 'phone', 'address']));
+                // Update User fields
+                $userData = $request->only(['name', 'email', 'phone', 'address', 'gender', 'birth_date']);
 
-                // Update Patient if applicable
-                if ($user->role === 'patient') {
-                    // Patients are NOT allowed to update their own NIK (national_id)
-                    $patientData = $request->only(['gender', 'birth_date']);
-                    if (!empty($patientData)) {
-                        $user->patient()->update($patientData);
-                    }
+                // Allow updating national_id only if it is currently null/empty
+                if ($request->has('national_id') && empty($user->national_id)) {
+                    $userData['national_id'] = $request->national_id;
                 }
+
+                $user->update($userData);
 
                 $user->load(['patient', 'doctor']);
 

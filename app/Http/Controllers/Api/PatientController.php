@@ -17,10 +17,10 @@ class PatientController extends Controller
     public function index(Request $request) {
         $user = $request->user();
         if ($user->role === 'patient') {
-            $patient = Patient::where('user_id', $user->id)->get();
+            $patient = Patient::where('user_id', $user->id)->with('user')->get();
             return $this->successResponse($patient, 'Data profil Anda berhasil diambil');
         }
-        return $this->successResponse(Patient::getAll(), 'Daftar pasien berhasil diambil');
+        return $this->successResponse(Patient::with('user')->get(), 'Daftar pasien berhasil diambil');
     }
 
     public function store(Request $request) {
@@ -28,7 +28,7 @@ class PatientController extends Controller
             'name'           => 'required|string|max:255',
             'email'          => 'required|email|unique:users,email',
             'password'       => 'required|string|min:6',
-            'national_id'    => ['required', 'digits:16', Rule::unique('patients')->whereNull('deleted_at')],
+            'national_id'    => ['required', 'digits:16', Rule::unique('users')->whereNull('deleted_at')],
             'gender'         => 'required|string|in:Laki-laki,Perempuan',
             'birth_date'     => 'required|date_format:Y-m-d',
             'phone'          => 'nullable|string|max:20',
@@ -49,17 +49,14 @@ class PatientController extends Controller
                     'role' => 'patient',
                     'phone' => $request->phone,
                     'address' => $request->address,
+                    'national_id' => $request->national_id,
+                    'gender' => $request->gender,
+                    'birth_date' => $request->birth_date,
                 ]);
 
                 // 2. Create Patient
                 $patient = Patient::create([
                     'user_id' => $user->id,
-                    'national_id' => $request->national_id,
-                    'gender' => $request->gender,
-                    'birth_date' => $request->birth_date,
-                    // Use name as full_name for backward compatibility if needed by the model
-                    'full_name' => $request->name,
-                    'phone_number' => $request->phone ?? '-',
                 ]);
 
                 return $this->successResponse($patient->load('user'), 'Pasien berhasil didaftarkan', 201);
@@ -95,12 +92,13 @@ class PatientController extends Controller
             }
 
             $validator = Validator::make($request->all(), [
+                'name'                  => 'sometimes|required|string|max:255',
                 'full_name'             => 'sometimes|required|string|max:255',
-                'phone_number'          => 'sometimes|required|string|max:20',
+                'phone'                 => 'sometimes|nullable|string|max:20',
+                'phone_number'          => 'sometimes|nullable|string|max:20',
                 'gender'                => 'sometimes|required|string|in:Laki-laki,Perempuan',
                 'birth_date'            => 'sometimes|required|date_format:Y-m-d',
-                'national_id'           => ['sometimes', 'required', 'digits:16', Rule::unique('patients')->ignore($id)->whereNull('deleted_at')],
-                // Memungkinkan update email juga melalui relasi user
+                'national_id'           => ['sometimes', 'required', 'digits:16', Rule::unique('users')->ignore($patient->user_id)->whereNull('deleted_at')],
                 'email'                 => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($patient->user_id)->whereNull('deleted_at')],
             ]);
 
@@ -111,23 +109,41 @@ class PatientController extends Controller
             $validatedData = $validator->validated();
 
             return \Illuminate\Support\Facades\DB::transaction(function () use ($patient, $validatedData) {
-                // 1. Update tabel Patients
-                $patient->update($validatedData);
-
-                // 2. Update tabel Users jika ada perubahan Nama atau Email
+                // Update tabel Users jika ada perubahan profil
                 $userData = [];
-                if (isset($validatedData['full_name'])) {
+                if (isset($validatedData['name'])) {
+                    $userData['name'] = $validatedData['name'];
+                } elseif (isset($validatedData['full_name'])) {
                     $userData['name'] = $validatedData['full_name'];
                 }
+                
                 if (isset($validatedData['email'])) {
                     $userData['email'] = $validatedData['email'];
+                }
+                
+                if (isset($validatedData['phone'])) {
+                    $userData['phone'] = $validatedData['phone'];
+                } elseif (isset($validatedData['phone_number'])) {
+                    $userData['phone'] = $validatedData['phone_number'];
+                }
+                
+                if (isset($validatedData['gender'])) {
+                    $userData['gender'] = $validatedData['gender'];
+                }
+                
+                if (isset($validatedData['birth_date'])) {
+                    $userData['birth_date'] = $validatedData['birth_date'];
+                }
+                
+                if (isset($validatedData['national_id'])) {
+                    $userData['national_id'] = $validatedData['national_id'];
                 }
 
                 if (!empty($userData)) {
                     $patient->user()->update($userData);
                 }
 
-                return $this->successResponse($patient->load('user'), 'Profil berhasil diperbarui di kedua tabel');
+                return $this->successResponse($patient->load('user'), 'Profil berhasil diperbarui');
             });
         } catch (Exception $e) {
             return $this->errorResponse('Gagal memperbarui: ' . $e->getMessage(), 404);

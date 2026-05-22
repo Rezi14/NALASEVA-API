@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('polyclinic_id')->constrained('polyclinics')->onDelete('cascade');
             $table->string('specialization');
+            $table->string('license_number')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

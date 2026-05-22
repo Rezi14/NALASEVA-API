@@ -18,6 +18,9 @@ return new class extends Migration {
             $table->enum('role', ['admin', 'doctor', 'patient'])->default('patient');
             $table->string('phone')->nullable();
             $table->text('address')->nullable();
+            $table->string('national_id')->nullable()->unique();
+            $table->enum('gender', ['Laki-laki', 'Perempuan'])->nullable();
+            $table->date('birth_date')->nullable();
             $table->string('fcm_token')->nullable()->comment('Token Firebase untuk Push Notification');
             $table->timestamps();
             $table->softDeletes();

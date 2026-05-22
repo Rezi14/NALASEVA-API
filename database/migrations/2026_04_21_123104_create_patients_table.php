@@ -14,10 +14,6 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->string('medical_record_number')->unique();
-            $table->string('national_id')->unique();
-            $table->string('full_name');
-            $table->enum('gender', ['Laki-laki', 'Perempuan'])->nullable();
-            $table->date('birth_date')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

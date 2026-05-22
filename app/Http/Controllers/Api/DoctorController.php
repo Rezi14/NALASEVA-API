@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Exception;
 
 class DoctorController extends Controller
@@ -34,6 +35,9 @@ class DoctorController extends Controller
             'polyclinic_id'  => 'required|integer|exists:polyclinics,id',
             'specialization' => 'required|string|max:255',
             'license_number' => 'nullable|string|max:255',
+            'national_id'    => 'nullable|string|digits:16|unique:users,national_id',
+            'gender'         => 'nullable|string|in:Laki-laki,Perempuan',
+            'birth_date'     => 'nullable|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {
@@ -46,7 +50,10 @@ class DoctorController extends Controller
                     'name' => $request->name,
                     'email' => $request->email,
                     'password' => \Hash::make($request->password),
-                    'role' => 'doctor'
+                    'role' => 'doctor',
+                    'national_id' => $request->national_id,
+                    'gender' => $request->gender,
+                    'birth_date' => $request->birth_date,
                 ]);
 
                 $doctor = Doctor::create([
@@ -71,6 +78,9 @@ class DoctorController extends Controller
                 'polyclinic_id'  => 'sometimes|required|integer|exists:polyclinics,id',
                 'specialization' => 'sometimes|required|string|max:255',
                 'license_number' => 'sometimes|nullable|string|max:255',
+                'national_id'    => ['sometimes', 'nullable', 'string', 'digits:16', Rule::unique('users')->ignore($doctor->user_id)->whereNull('deleted_at')],
+                'gender'         => 'sometimes|nullable|string|in:Laki-laki,Perempuan',
+                'birth_date'     => 'sometimes|nullable|date_format:Y-m-d',
             ]);
 
             if ($validator->fails()) {
@@ -80,11 +90,17 @@ class DoctorController extends Controller
             $data = $validator->validated();
 
             return \DB::transaction(function() use ($data, $doctor) {
-                if (isset($data['name'])) {
-                    $doctor->user->update(['name' => $data['name']]);
+                // Update User fields
+                $userData = collect($data)->only(['name', 'national_id', 'gender', 'birth_date'])->toArray();
+                if (!empty($userData)) {
+                    $doctor->user->update($userData);
                 }
                 
-                $doctor->update(collect($data)->only(['polyclinic_id', 'specialization', 'license_number'])->toArray());
+                // Update Doctor specific fields
+                $doctorData = collect($data)->only(['polyclinic_id', 'specialization', 'license_number'])->toArray();
+                if (!empty($doctorData)) {
+                    $doctor->update($doctorData);
+                }
                 
                 return $this->successResponse(Doctor::getById($doctor->id), 'Data dokter berhasil diperbarui');
             });

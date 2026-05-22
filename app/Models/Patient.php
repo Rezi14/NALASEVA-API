@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Patient extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['user_id', 'medical_record_number', 'national_id', 'full_name', 'gender', 'birth_date'];
+    protected $fillable = ['user_id', 'medical_record_number'];
 
     protected static function booted()
     {
@@ -26,12 +26,12 @@ class Patient extends Model
 
     public static function getAll()
     {
-        return self::all();
+        return self::with('user')->get();
     }
 
     public static function getById($id)
     {
-        return self::findOrFail($id);
+        return self::with('user')->findOrFail($id);
     }
 
     public static function storeData($data)
