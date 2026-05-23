@@ -35,7 +35,7 @@ class DoctorController extends Controller
             'polyclinic_id'  => 'required|integer|exists:polyclinics,id',
             'specialization' => 'required|string|max:255',
             'license_number' => 'nullable|string|max:255',
-            'national_id'    => 'nullable|string|digits:16|unique:users,national_id',
+            'national_id'    => 'required|string|digits:16|unique:users,national_id',
             'gender'         => 'nullable|string|in:Laki-laki,Perempuan',
             'birth_date'     => 'nullable|date_format:Y-m-d',
         ]);
@@ -78,7 +78,7 @@ class DoctorController extends Controller
                 'polyclinic_id'  => 'sometimes|required|integer|exists:polyclinics,id',
                 'specialization' => 'sometimes|required|string|max:255',
                 'license_number' => 'sometimes|nullable|string|max:255',
-                'national_id'    => ['sometimes', 'nullable', 'string', 'digits:16', Rule::unique('users')->ignore($doctor->user_id)->whereNull('deleted_at')],
+                'national_id'    => ['sometimes', 'required', 'string', 'digits:16', Rule::unique('users')->ignore($doctor->user_id)->whereNull('deleted_at')],
                 'gender'         => 'sometimes|nullable|string|in:Laki-laki,Perempuan',
                 'birth_date'     => 'sometimes|nullable|date_format:Y-m-d',
             ]);
