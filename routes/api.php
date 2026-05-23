@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PolyclinicController;
 use App\Http\Controllers\Api\DoctorController;
@@ -19,6 +20,9 @@ Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword']);
 // --- Protected Routes ---
 Route::middleware('auth:sanctum')->group(function () {
     
+    // Dashboard Stats
+    Route::get('dashboard-stats', [DashboardController::class, 'getStats']);
+
     // Auth actions
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/profile', [AuthController::class, 'profile']);
