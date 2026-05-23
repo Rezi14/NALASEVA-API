@@ -38,6 +38,8 @@ class DoctorController extends Controller
             'national_id'    => 'required|string|digits:16|unique:users,national_id',
             'gender'         => 'nullable|string|in:Laki-laki,Perempuan',
             'birth_date'     => 'nullable|date_format:Y-m-d',
+            'phone'          => 'nullable|string|max:20',
+            'address'        => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -54,6 +56,8 @@ class DoctorController extends Controller
                     'national_id' => $request->national_id,
                     'gender' => $request->gender,
                     'birth_date' => $request->birth_date,
+                    'phone' => $request->phone,
+                    'address' => $request->address,
                 ]);
 
                 $doctor = Doctor::create([
@@ -81,6 +85,8 @@ class DoctorController extends Controller
                 'national_id'    => ['sometimes', 'required', 'string', 'digits:16', Rule::unique('users')->ignore($doctor->user_id)->whereNull('deleted_at')],
                 'gender'         => 'sometimes|nullable|string|in:Laki-laki,Perempuan',
                 'birth_date'     => 'sometimes|nullable|date_format:Y-m-d',
+                'phone'          => 'sometimes|nullable|string|max:20',
+                'address'        => 'sometimes|nullable|string|max:500',
             ]);
 
             if ($validator->fails()) {
@@ -91,7 +97,7 @@ class DoctorController extends Controller
 
             return \DB::transaction(function() use ($data, $doctor) {
                 // Update User fields
-                $userData = collect($data)->only(['name', 'national_id', 'gender', 'birth_date'])->toArray();
+                $userData = collect($data)->only(['name', 'national_id', 'gender', 'birth_date', 'phone', 'address'])->toArray();
                 if (!empty($userData)) {
                     $doctor->user->update($userData);
                 }
