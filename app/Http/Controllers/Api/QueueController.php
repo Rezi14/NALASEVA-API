@@ -52,9 +52,11 @@ class QueueController extends Controller
         }
 
         $bookingDate = \Carbon\Carbon::parse($request->date);
+        $today = \Carbon\Carbon::today();
+        $daysDiff = $today->diffInDays($bookingDate, false);
         
-        if ($bookingDate->isPast() && !$bookingDate->isToday()) {
-            return $this->errorResponse('Tidak bisa mendaftar untuk tanggal yang sudah lewat', 422);
+        if ($daysDiff < 1 || $daysDiff > 7) {
+            return $this->errorResponse('Pendaftaran online hanya diperbolehkan H-7 hingga H-1 sebelum tanggal kunjungan', 422);
         }
 
         $days = [
@@ -71,13 +73,21 @@ class QueueController extends Controller
             return $this->errorResponse('Dokter tidak memiliki jadwal praktik pada hari tersebut', 422);
         }
 
-        if ($bookingDate->isToday()) {
-            $currentTime = \Carbon\Carbon::now();
-            $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $schedule->end_time);
-            
-            if ($currentTime->greaterThan($endTime)) {
-                return $this->errorResponse('Pendaftaran untuk hari ini sudah ditutup (Jadwal selesai jam ' . substr($schedule->end_time, 0, 5) . ')', 422);
-            }
+        // Kalkulasi kuota dinamis berdasarkan jam kerja dokter (durasi_menit / 15)
+        $startTime = \Carbon\Carbon::parse($schedule->start_time);
+        $endTime = \Carbon\Carbon::parse($schedule->end_time);
+        $duration = $startTime->diffInMinutes($endTime);
+        $quota = $duration > 0 ? floor($duration / 15) : 10;
+
+        // Hitung antrean aktif saat ini pada tanggal terpilih
+        $activeBookingsCount = Queue::where('doctor_id', $request->doctor_id)
+                                    ->where('polyclinic_id', $request->polyclinic_id)
+                                    ->where('date', $request->date)
+                                    ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                    ->count();
+
+        if ($activeBookingsCount >= $quota) {
+            return $this->errorResponse('Kuota pendaftaran untuk jadwal dokter tersebut sudah penuh (Kapasitas: ' . $quota . ' pasien)', 422);
         }
 
         $polyclinic = \App\Models\Polyclinic::findOrFail($request->polyclinic_id);
@@ -86,7 +96,7 @@ class QueueController extends Controller
         $prefix = strtoupper($polyclinic->code);
         
         try {
-            return DB::transaction(function () use ($request, $prefix, $validator) {
+            return DB::transaction(function () use ($request, $prefix, $validator, $schedule) {
                 // Perbaikan Race Condition: Lock row poliklinik agar lock tetap bekerja meski tabel antrean kosong
                 \App\Models\Polyclinic::where('id', $request->polyclinic_id)->lockForUpdate()->first();
 
@@ -106,10 +116,15 @@ class QueueController extends Controller
                 
                 $queueNumber = sprintf('%s-%03d', $prefix, $nextNumber);
 
+                // Hitung estimasi jam pelayanan: start_time + (nextNumber - 1) * 15 menit
+                $startTimeCarbon = \Carbon\Carbon::parse($schedule->start_time);
+                $estimatedServiceTime = $startTimeCarbon->copy()->addMinutes(($nextNumber - 1) * 15)->format('H:i:s');
+
                 // Perbaikan Mass Assignment: Hanya simpan data yang tervalidasi
                 $data = $validator->validated();
                 $data['queue_number'] = $queueNumber;
                 $data['status'] = 'booked';
+                $data['estimated_service_time'] = $estimatedServiceTime;
 
                 $queue = Queue::storeData($data);
                 return $this->successResponse($queue, 'Antrian berhasil dibuat', 201);
@@ -150,8 +165,13 @@ class QueueController extends Controller
                 return $this->errorResponse(implode(', ', $validator->errors()->all()), 422);
             }
 
+            $validatedData = $validator->validated();
+            if (isset($validatedData['status']) && $validatedData['status'] === 'examining') {
+                $validatedData['called_time'] = now();
+            }
+
             // Perbaikan Mass Assignment Bypass
-            $data = Queue::updateData($id, $validator->validated());
+            $data = Queue::updateData($id, $validatedData);
             return $this->successResponse($data, 'Status antrian berhasil diperbarui');
         } catch (Exception $e) {
             return $this->errorResponse('Gagal memperbarui, data antrian tidak ditemukan', 404);
@@ -214,6 +234,68 @@ class QueueController extends Controller
             return $this->successResponse($queue, 'Check-in berhasil via QR Scanner');
         } catch (Exception $e) {
             return $this->errorResponse('Data antrean tidak ditemukan', 404);
+        }
+    }
+
+    public function skip(Request $request, $id) {
+        try {
+            $queue = Queue::findOrFail($id);
+            $user = $request->user();
+            
+            if ($user->role === 'patient') {
+                return $this->errorResponse('Akses ditolak. Pasien tidak memiliki otorisasi.', 403);
+            }
+
+            return DB::transaction(function () use ($queue) {
+                // Lock row poliklinik
+                \App\Models\Polyclinic::where('id', $queue->polyclinic_id)->lockForUpdate()->first();
+
+                $lastQueue = Queue::whereDate('date', $queue->date)
+                                   ->where('polyclinic_id', $queue->polyclinic_id)
+                                   ->orderBy('id', 'desc')
+                                   ->first();
+                                   
+                $nextNumber = 1;
+                if ($lastQueue && preg_match('/-(\d+)$/', $lastQueue->queue_number, $matches)) {
+                     $nextNumber = (int)$matches[1] + 1;
+                }
+                
+                if ($nextNumber < 1) {
+                    $nextNumber = 1;
+                }
+                
+                $polyclinic = \App\Models\Polyclinic::findOrFail($queue->polyclinic_id);
+                $prefix = strtoupper($polyclinic->code);
+                $newQueueNumber = sprintf('%s-%03d', $prefix, $nextNumber);
+
+                // Tambahkan waktu pelayanan baru untuk posisi paling belakang
+                $dayOfWeekEnglish = \Carbon\Carbon::parse($queue->date)->format('l');
+                $days = [
+                    'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa', 
+                    'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'
+                ];
+                $dayName = $days[$dayOfWeekEnglish];
+
+                $schedule = \App\Models\DoctorSchedule::where('doctor_id', $queue->doctor_id)
+                    ->where('day_of_week', $dayName)
+                    ->first();
+                
+                $estimatedServiceTime = null;
+                if ($schedule) {
+                    $startTimeCarbon = \Carbon\Carbon::parse($schedule->start_time);
+                    $estimatedServiceTime = $startTimeCarbon->copy()->addMinutes(($nextNumber - 1) * 15)->format('H:i:s');
+                }
+
+                $queue->update([
+                    'queue_number' => $newQueueNumber,
+                    'status' => 'booked', // kembalikan ke status booked agar harus check-in kembali
+                    'estimated_service_time' => $estimatedServiceTime,
+                ]);
+
+                return $this->successResponse($queue, 'Antrean berhasil digeser ke urutan paling belakang');
+            });
+        } catch (Exception $e) {
+            return $this->errorResponse('Gagal menggeser antrean ke urutan paling belakang', 500);
         }
     }
 }

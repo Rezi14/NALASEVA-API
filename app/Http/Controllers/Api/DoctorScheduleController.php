@@ -13,9 +13,17 @@ class DoctorScheduleController extends Controller
 {
     use ApiResponse;
 
-    public function index()
+    public function index(Request $request)
     {
-        return $this->successResponse(DoctorSchedule::getAll(), 'Daftar jadwal dokter berhasil diambil');
+        $query = DoctorSchedule::with(['doctor.user', 'doctor.polyclinic']);
+
+        if ($request->has('polyclinic_id')) {
+            $query->whereHas('doctor', function ($q) use ($request) {
+                $q->where('polyclinic_id', $request->polyclinic_id);
+            });
+        }
+
+        return $this->successResponse($query->get(), 'Daftar jadwal dokter berhasil diambil');
     }
 
     public function store(Request $request)

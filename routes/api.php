@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\ExaminationController;
 use App\Http\Controllers\Api\DoctorScheduleController;
+use App\Http\Controllers\Api\ClinicHolidayController;
+use App\Http\Controllers\Api\DoctorLeaveController;
 
 // --- Public Routes ---
 Route::post('auth/login', [AuthController::class, 'login']);
@@ -26,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Custom API Mobile Features
     Route::get('doctors/profile', [DoctorController::class, 'myProfile']);
     Route::post('queues/{id}/checkin', [QueueController::class, 'checkIn']);
+    Route::post('queues/{id}/skip', [QueueController::class, 'skip']);
 
     // Rute khusus untuk Restore Data
     Route::post('users/{id}/restore', [UserController::class, 'restore']);
@@ -44,4 +47,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('patients', PatientController::class);
     Route::apiResource('queues', QueueController::class);
     Route::apiResource('examinations', ExaminationController::class);
+    Route::apiResource('clinic-holidays', ClinicHolidayController::class);
+    Route::apiResource('doctor-leaves', DoctorLeaveController::class);
 });

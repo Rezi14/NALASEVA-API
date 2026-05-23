@@ -19,6 +19,8 @@ return new class extends Migration {
             $table->date('date');
             $table->enum('status', ['booked', 'waiting', 'examining', 'completed', 'cancelled'])->default('booked');
             $table->timestamp('check_in_time')->nullable();
+            $table->timestamp('called_time')->nullable();
+            $table->time('estimated_service_time')->nullable();
             $table->boolean('is_priority')->default(false)->comment('Jika true, trigger alert ke dokter');
             $table->timestamps();
             $table->softDeletes();

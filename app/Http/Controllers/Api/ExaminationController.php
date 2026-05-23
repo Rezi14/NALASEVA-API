@@ -24,6 +24,24 @@ class ExaminationController extends Controller
                     $p->where('user_id', $user->id);
                 });
             });
+        } elseif ($user->role === 'doctor') {
+            // Dokter hanya diperbolehkan melihat rekam medis dari polikliniknya sendiri
+            $doctor = \App\Models\Doctor::where('user_id', $user->id)->first();
+            if ($doctor) {
+                $query->whereHas('queue', function($q) use ($doctor) {
+                    $q->where('polyclinic_id', $doctor->polyclinic_id);
+                });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+
+            if ($request->has('patient_user_id')) {
+                $query->whereHas('queue', function($q) use ($request) {
+                    $q->whereHas('patient', function($p) use ($request) {
+                        $p->where('user_id', $request->patient_user_id);
+                    });
+                });
+            }
         } elseif ($request->has('patient_user_id')) {
             $query->whereHas('queue', function($q) use ($request) {
                 $q->whereHas('patient', function($p) use ($request) {
@@ -70,6 +88,11 @@ class ExaminationController extends Controller
                 if ($examination->queue->patient->user_id !== $user->id) {
                     return $this->errorResponse('Akses ditolak. Rekam medis ini bukan milik Anda.', 403);
                 }
+            } elseif ($user->role === 'doctor') {
+                $doctor = \App\Models\Doctor::where('user_id', $user->id)->first();
+                if (!$doctor || $examination->queue->polyclinic_id !== $doctor->polyclinic_id) {
+                    return $this->errorResponse('Akses ditolak. Rekam medis ini tidak berada di poliklinik Anda.', 403);
+                }
             }
             
             return $this->successResponse($examination, 'Detail rekam medis ditemukan');
@@ -97,6 +120,14 @@ class ExaminationController extends Controller
                 return $this->errorResponse($validator->errors()->first(), 422);
             }
 
+            $examination = Examination::findOrFail($id);
+            if ($request->user()->role === 'doctor') {
+                $doctor = \App\Models\Doctor::where('user_id', $request->user()->id)->first();
+                if (!$doctor || $examination->queue->polyclinic_id !== $doctor->polyclinic_id) {
+                    return $this->errorResponse('Akses ditolak. Anda tidak diizinkan mengubah rekam medis dari poliklinik lain.', 403);
+                }
+            }
+
             $data = Examination::updateData($id, $validator->validated());
             return $this->successResponse($data, 'Data rekam medis berhasil diperbarui');
         } catch (Exception $e) {
@@ -109,6 +140,14 @@ class ExaminationController extends Controller
             // BUG-12 Security Fix: Hanya Dokter dan Admin yang bisa menghapus rekam medis
             if ($request->user()->role === 'patient') {
                 return $this->errorResponse('Akses ditolak. Pasien tidak diizinkan menghapus rekam medis.', 403);
+            }
+
+            $examination = Examination::findOrFail($id);
+            if ($request->user()->role === 'doctor') {
+                $doctor = \App\Models\Doctor::where('user_id', $request->user()->id)->first();
+                if (!$doctor || $examination->queue->polyclinic_id !== $doctor->polyclinic_id) {
+                    return $this->errorResponse('Akses ditolak. Anda tidak diizinkan menghapus rekam medis dari poliklinik lain.', 403);
+                }
             }
 
             Examination::softDeleteData($id);
