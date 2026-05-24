@@ -133,7 +133,7 @@ class DoctorController extends Controller
             return \DB::transaction(function() use ($data, $doctor) {
                 // Update User fields
                 $userData = collect($data)->only(['name', 'national_id', 'gender', 'birth_date', 'phone', 'address'])->toArray();
-                if (!empty($userData)) {
+                if (!empty($userData) && $doctor->user) {
                     $doctor->user->update($userData);
                 }
                 

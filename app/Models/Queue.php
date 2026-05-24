@@ -85,6 +85,10 @@ class Queue extends Model
         $count = 0;
 
         foreach ($completedExams as $exam) {
+            if (!$exam->queue) {
+                continue;
+            }
+            
             $start = $exam->queue->called_time ? \Carbon\Carbon::parse($exam->queue->called_time) : null;
             if (!$start && $exam->queue->check_in_time) {
                 $start = \Carbon\Carbon::parse($exam->queue->check_in_time);

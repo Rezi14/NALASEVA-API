@@ -134,7 +134,7 @@ class QueueController extends Controller
             $queue = Queue::getById($id);
             $user = $request->user();
 
-            if ($user->role === 'patient' && $queue->patient->user_id !== $user->id) {
+            if ($user->role === 'patient' && ($queue->patient?->user_id ?? null) !== $user->id) {
                 return $this->errorResponse('Akses ditolak. Anda tidak dapat melihat detail antrean orang lain.', 403);
             }
 
@@ -186,7 +186,7 @@ class QueueController extends Controller
 
             if (isset($validatedData['status']) && $validatedData['status'] === 'examining') {
                 $updatedQueue = Queue::with('patient.user')->find($id);
-                $fcmToken = $updatedQueue->patient->user->fcm_token ?? null;
+                $fcmToken = $updatedQueue->patient?->user?->fcm_token ?? null;
                 
                 if ($fcmToken) {
                     $firebaseService = new \App\Services\FirebaseNotificationService();
@@ -211,7 +211,7 @@ class QueueController extends Controller
             $user = $request->user();
 
             // Mencegah Celah Keamanan IDOR: Pasien tidak boleh menghapus antrean milik orang lain
-            if ($user->role === 'patient' && $queue->patient->user_id !== $user->id) {
+            if ($user->role === 'patient' && ($queue->patient?->user_id ?? null) !== $user->id) {
                 return $this->errorResponse('Akses ditolak. Anda hanya dapat membatalkan antrean Anda sendiri.', 403);
             }
 
