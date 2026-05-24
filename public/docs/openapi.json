@@ -1,0 +1,3384 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NALASEVA API Documentation",
+    "description": "Dokumentasi API lengkap untuk sistem antrean online dan manajemen klinik NALASEVA. API ini memfasilitasi autentikasi pengguna (Admin, Dokter, Pasien), manajemen antrean dinamis (kuota otomatis, geser antrean, QR Check-in), statistik dashboard, jadwal dokter, cuti, hari libur, dan pencatatan rekam medis (pemeriksaan). Seluruh endpoint berproteksi diamankan menggunakan Laravel Sanctum (Bearer Token).",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Developer Team NALASEVA",
+      "email": "developer@nalaseva.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://nalaseva-api-production.up.railway.app",
+      "description": "Server Produksi (Railway)"
+    },
+    {
+      "url": "http://localhost:8000",
+      "description": "Server Lokal (Development)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Endpoint pendaftaran, masuk, keluar, dan pengelolaan profil pengguna."
+    },
+    {
+      "name": "Dashboard",
+      "description": "Endpoint statistik ringkasan dashboard untuk Admin."
+    },
+    {
+      "name": "Polyclinics",
+      "description": "Manajemen data poliklinik (CRUD & Soft Delete/Restore)."
+    },
+    {
+      "name": "Doctors",
+      "description": "Manajemen profil, akun, dan status online/istirahat dokter."
+    },
+    {
+      "name": "Schedules",
+      "description": "Manajemen jadwal dan jam praktik mingguan dokter."
+    },
+    {
+      "name": "Leaves & Holidays",
+      "description": "Manajemen pengajuan cuti dokter dan penetapan hari libur klinik."
+    },
+    {
+      "name": "Patients",
+      "description": "Manajemen data pasien dan rekam medis dasar."
+    },
+    {
+      "name": "Queues",
+      "description": "Sistem antrean interaktif (pendaftaran online, check-in, geser antrean, pemanggilan)."
+    },
+    {
+      "name": "Examinations",
+      "description": "Manajemen riwayat pemeriksaan / rekam medis medis oleh dokter."
+    }
+  ],
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Masuk / Login Pengguna",
+        "description": "Autentikasi pengguna menggunakan email dan password untuk mendapatkan token akses.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "admin@nalaseva.com",
+                    "description": "Alamat email pengguna"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123",
+                    "description": "Password akun"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil, mengembalikan token akses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Login berhasil"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "access_token": {
+                          "type": "string",
+                          "example": "1|abcdef1234567890..."
+                        },
+                        "token_type": {
+                          "type": "string",
+                          "example": "Bearer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kredensial salah",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "status": "error",
+                      "message": "Email atau password salah"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Kesalahan validasi input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "validation": {
+                    "value": {
+                      "status": "error",
+                      "message": "Email harus diisi dengan format email yang valid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Pendaftaran Pasien Baru (Registrasi Mandiri)",
+        "description": "Mendaftarkan pasien baru secara mandiri ke sistem. Secara otomatis membuat entitas User dengan role `patient` dan data profil `Patient` yang bersangkutan dengan Medical Record Number (MRN) unik.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "password",
+                  "national_id",
+                  "phone_number",
+                  "gender",
+                  "birth_date",
+                  "address"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Rezi Ardiansyah",
+                    "description": "Nama lengkap pasien"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "rezi@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "securepassword123"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "pattern": "^[0-9]{16}$",
+                    "example": "3201021234567890",
+                    "description": "NIK (Nomor Induk Kependudukan) 16 digit"
+                  },
+                  "phone_number": {
+                    "type": "string",
+                    "example": "081234567890",
+                    "description": "Nomor handphone/WhatsApp aktif"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "Laki-laki",
+                      "Perempuan"
+                    ],
+                    "example": "Laki-laki"
+                  },
+                  "birth_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2000-08-14",
+                    "description": "Tanggal lahir (Format: YYYY-MM-DD)"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Merdeka No. 10, Jakarta Pusat"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registrasi berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Registrasi berhasil"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "access_token": {
+                          "type": "string",
+                          "example": "2|ghijk7890123456..."
+                        },
+                        "token_type": {
+                          "type": "string",
+                          "example": "Bearer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validasi gagal (email / NIK duplikat atau input tidak lengkap)"
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Lupa Password (Reset via Verifikasi NIK)",
+        "description": "Mereset password akun pasien dengan memverifikasi kecocokan Email dan NIK (National ID).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "national_id",
+                  "new_password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "rezi@example.com"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "3201021234567890"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "newsecurepwd123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password berhasil di-reset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Password berhasil diperbarui, silakan login kembali"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data NIK atau email tidak cocok / tidak ditemukan"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Keluar / Logout Pengguna",
+        "description": "Menghapus token akses aktif milik pengguna.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logout berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Logout berhasil"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum terautentikasi"
+          }
+        }
+      }
+    },
+    "/api/auth/profile": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Ambil Profil Pengguna Aktif",
+        "description": "Mengambil informasi detail profil user beserta relasi pasien atau dokternya.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data profil berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Profil berhasil diambil"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/update-profile": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Perbarui Profil Pengguna Aktif",
+        "description": "Memperbarui informasi profil pengguna yang sedang login. Perubahan NIK hanya diizinkan jika data NIK saat ini masih kosong.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Rezi A."
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "rezi_new@example.com"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "081299998888"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Baru No. 5, Bogor"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "3201021234567890",
+                    "description": "Hanya diproses jika NIK pengguna sebelumnya masih kosong."
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "Laki-laki",
+                      "Perempuan"
+                    ],
+                    "example": "Laki-laki"
+                  },
+                  "birth_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2000-08-14"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profil berhasil diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Profil berhasil diperbarui"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/fcm-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Perbarui Firebase FCM Token",
+        "description": "Memperbarui FCM Token pengguna untuk menerima notifikasi push terkait antrean dan status dokter.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fcm_token"
+                ],
+                "properties": {
+                  "fcm_token": {
+                    "type": "string",
+                    "example": "fcm_token_example_123456abcdefg...",
+                    "description": "Firebase Cloud Messaging Token dari perangkat mobile/klien."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token berhasil diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "FCM Token berhasil diperbarui"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard-stats": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Ambil Statistik Dashboard",
+        "description": "Mendapatkan ringkasan statistik komprehensif hari ini (total pasien terdaftar, total dokter aktif, jumlah antrean aktif, selesai, batal, dan statistik per poliklinik). Didesain tanpa N+1 query.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Statistik berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Statistik dashboard berhasil diambil"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total_patients": {
+                          "type": "integer",
+                          "example": 142
+                        },
+                        "total_doctors": {
+                          "type": "integer",
+                          "example": 12
+                        },
+                        "active_queues_today": {
+                          "type": "integer",
+                          "example": 25,
+                          "description": "Jumlah antrean status booked, waiting, atau examining hari ini"
+                        },
+                        "completed_queues_today": {
+                          "type": "integer",
+                          "example": 38
+                        },
+                        "cancelled_queues_today": {
+                          "type": "integer",
+                          "example": 3
+                        },
+                        "polyclinic_stats": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "polyclinic_id": {
+                                "type": "integer",
+                                "example": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "example": "Poliklinik Gigi"
+                              },
+                              "active_queue_count": {
+                                "type": "integer",
+                                "example": 8
+                              },
+                              "waiting_queue_count": {
+                                "type": "integer",
+                                "example": 5
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/doctors/profile": {
+      "get": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Ambil Profil Dokter Aktif",
+        "description": "Mengambil detail profil spesifik dokter berdasarkan akun pengguna yang sedang login.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profil dokter berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Profil dokter berhasil diambil"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Doctor"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data profil dokter tidak ditemukan"
+          }
+        }
+      }
+    },
+    "/api/doctors/me/status": {
+      "patch": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Perbarui Status Aktif/Istirahat Dokter",
+        "description": "Mengubah status kehadiran dokter (`is_online`). Jika status diset ke `false` (istirahat), sistem secara otomatis mengirimkan notifikasi FCM kepada seluruh Admin agar tidak memanggil antrean poliklinik bersangkutan untuk sementara.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "is_online"
+                ],
+                "properties": {
+                  "is_online": {
+                    "type": "boolean",
+                    "example": false,
+                    "description": "Status kehadiran dokter (true = online/melayani, false = offline/istirahat)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status berhasil diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Status berhasil diperbarui"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "example": 2
+                        },
+                        "is_online": {
+                          "type": "boolean",
+                          "example": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/queues/{id}/checkin": {
+      "post": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Verifikasi Check-In Antrean",
+        "description": "Hanya diizinkan untuk Admin (petugas klinik). Melakukan verifikasi check-in antrean pada hari kunjungan (mengubah status antrean dari `booked` menjadi `waiting` dan mencatat `check_in_time`). Hanya boleh dilakukan pada tanggal kunjungan yang tepat.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "ID Antrean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-in berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Check-in berhasil via QR Scanner"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Queue"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Check-in tidak valid (belum hari H, atau antrean sudah check-in/batal)"
+          },
+          "403": {
+            "description": "Akses ditolak (bukan admin)"
+          }
+        }
+      }
+    },
+    "/api/queues/{id}/skip": {
+      "post": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Geser Antrean Pasien ke Paling Belakang (Skip)",
+        "description": "Hanya diizinkan untuk Dokter dan Admin. Memindahkan antrean pasien yang tidak hadir/terlewat ke nomor urut paling belakang pada hari tersebut. Status antrean dikembalikan menjadi `booked` agar mereka harus melakukan check-in ulang saat datang kembali.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "ID Antrean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Antrean berhasil digeser ke urutan paling belakang",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Antrean berhasil digeser ke urutan paling belakang"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Queue"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak (pasien tidak diizinkan)"
+          }
+        }
+      }
+    },
+    "/api/polyclinics": {
+      "get": {
+        "tags": [
+          "Polyclinics"
+        ],
+        "summary": "Ambil Semua Poliklinik",
+        "description": "Mengambil semua daftar poliklinik aktif.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar poliklinik berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Polyclinic"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Polyclinics"
+        ],
+        "summary": "Buat Poliklinik Baru",
+        "description": "Hanya untuk Admin. Membuat poliklinik baru. Kode poliklinik harus berupa karakter huruf kapital & angka (maks 5 karakter).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "name"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "GIG",
+                    "description": "Kode unik poliklinik (A-Z, 0-9)"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Poliklinik Gigi & Mulut"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Pelayanan perawatan gigi medis, scaling, penambalan, dan pencabutan gigi."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Poliklinik berhasil ditambahkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Polyclinic"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/polyclinics/{id}": {
+      "get": {
+        "tags": [
+          "Polyclinics"
+        ],
+        "summary": "Ambil Detail Poliklinik",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail poliklinik ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Polyclinic"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Polyclinics"
+        ],
+        "summary": "Perbarui Poliklinik",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "GIG"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Poliklinik Gigi Mulut & Bedah Mulut"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Update fasilitas bedah mulut."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Poliklinik berhasil diperbarui"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Polyclinics"
+        ],
+        "summary": "Hapus Poliklinik (Soft Delete)",
+        "description": "Menghapus data poliklinik secara lunak (masuk trash).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Poliklinik berhasil dihapus"
+          }
+        }
+      }
+    },
+    "/api/polyclinics/{id}/restore": {
+      "post": {
+        "tags": [
+          "Polyclinics"
+        ],
+        "summary": "Kembalikan Poliklinik Terhapus",
+        "description": "Mengembalikan data poliklinik yang telah di-soft delete agar aktif kembali.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data poliklinik berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/doctors": {
+      "get": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Ambil Semua Dokter",
+        "description": "Mengambil semua daftar dokter berserta detail spesialisasi dan relasi data akun penggunanya.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar dokter berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Doctor"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Tambahkan Dokter Baru",
+        "description": "Hanya untuk Admin. Membuat akun Dokter baru sekaligus entitas User login-nya. Melibatkan transaksi database.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "password",
+                  "polyclinic_id",
+                  "specialization",
+                  "license_number",
+                  "national_id",
+                  "gender",
+                  "birth_date",
+                  "phone",
+                  "address"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Dr. Dian Sastro"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "dian.s@nalaseva.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "doctorpwd123"
+                  },
+                  "polyclinic_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "specialization": {
+                    "type": "string",
+                    "example": "Spesialis Gigi Anak"
+                  },
+                  "license_number": {
+                    "type": "string",
+                    "example": "SIP-12345/2026/GIGI"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "3201026543210009"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "Laki-laki",
+                      "Perempuan"
+                    ],
+                    "example": "Perempuan"
+                  },
+                  "birth_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "1988-06-15"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "081211112222"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Kencana No. 4, Jakarta Barat"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dokter berhasil ditambahkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Doctor"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/doctors/{id}": {
+      "get": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Ambil Detail Dokter",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail dokter ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Doctor"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Perbarui Akun Dokter",
+        "description": "Hanya untuk Admin. Memperbarui informasi profil dan spesialisasi dokter. Melibatkan update data di tabel `doctors` dan `users` sekaligus secara transaksional.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Dr. Dian Sastro Sp.KGA"
+                  },
+                  "specialization": {
+                    "type": "string",
+                    "example": "Spesialis Kedokteran Gigi Anak (Pedodonti)"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "081211119999"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data dokter berhasil diperbarui"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Hapus Akun Dokter (Soft Delete)",
+        "description": "Menghapus entitas Dokter sekaligus menonaktifkan akun User login dokter tersebut secara bersamaan via soft delete.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dokter dan akun berhasil dihapus"
+          }
+        }
+      }
+    },
+    "/api/doctors/{id}/restore": {
+      "post": {
+        "tags": [
+          "Doctors"
+        ],
+        "summary": "Kembalikan Akun Dokter Terhapus",
+        "description": "Mengembalikan data dokter beserta akun User login yang telah di-soft delete agar aktif dan bisa masuk kembali ke sistem.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data dokter berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/doctor-schedules": {
+      "get": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Ambil Semua Jadwal Dokter",
+        "description": "Mengambil semua jadwal shift praktik dokter di klinik. Dapat difilter berdasarkan poliklinik tertentu.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "polyclinic_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter jadwal berdasarkan ID poliklinik"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar jadwal dokter berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DoctorSchedule"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Tambahkan Jadwal Praktik Baru",
+        "description": "Hanya untuk Admin. Menambahkan jam praktik dokter pada hari tertentu. Sistem memiliki **proteksi bentrok jadwal**, mencegah pembuatan shift praktik yang bertabrakan jamnya untuk dokter yang sama di hari yang sama.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "doctor_id",
+                  "day_of_week",
+                  "start_time",
+                  "end_time"
+                ],
+                "properties": {
+                  "doctor_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "day_of_week": {
+                    "type": "string",
+                    "enum": [
+                      "Senin",
+                      "Selasa",
+                      "Rabu",
+                      "Kamis",
+                      "Jumat",
+                      "Sabtu",
+                      "Minggu"
+                    ],
+                    "example": "Senin"
+                  },
+                  "start_time": {
+                    "type": "string",
+                    "pattern": "^[0-9]{2}:[0-9]{2}$",
+                    "example": "08:00",
+                    "description": "Waktu mulai shift (Format: HH:ii)"
+                  },
+                  "end_time": {
+                    "type": "string",
+                    "pattern": "^[0-9]{2}:[0-9]{2}$",
+                    "example": "12:00",
+                    "description": "Waktu selesai shift (Format: HH:ii, harus di atas start_time)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Jadwal dokter berhasil ditambahkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DoctorSchedule"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Gagal validasi atau jam shift praktik bentrok / bertabrakan"
+          }
+        }
+      }
+    },
+    "/api/doctor-schedules/{id}": {
+      "get": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Ambil Detail Jadwal",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail jadwal ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DoctorSchedule"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Perbarui Jadwal Praktik",
+        "description": "Hanya untuk Admin. Mengubah data shift praktik dokter. Tetap divalidasi agar tidak bentrok dengan jadwal aktif dokter bersangkutan di shift lainnya.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "start_time": {
+                    "type": "string",
+                    "example": "09:00"
+                  },
+                  "end_time": {
+                    "type": "string",
+                    "example": "13:00"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Jadwal berhasil diperbarui"
+          },
+          "422": {
+            "description": "Jam bertabrakan dengan shift lain pada hari tersebut"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Hapus Jadwal Praktik (Soft Delete)",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Jadwal berhasil dihapus"
+          }
+        }
+      }
+    },
+    "/api/doctor-schedules/{id}/restore": {
+      "post": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Kembalikan Jadwal Terhapus",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data jadwal berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/clinic-holidays": {
+      "get": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Ambil Daftar Libur Klinik",
+        "description": "Mengambil semua daftar hari libur operasional klinik di masa mendatang (mulai hari ini ke depan).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar hari libur berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Daftar hari libur berhasil diambil"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ClinicHoliday"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Tetapkan Tanggal Libur Klinik",
+        "description": "Hanya untuk Admin. Menambahkan hari libur operasional klinik pada tanggal tertentu.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "holiday_date"
+                ],
+                "properties": {
+                  "holiday_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-06-25",
+                    "description": "Tanggal libur (Format: YYYY-MM-DD)"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Hari Raya Idul Adha"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hari libur berhasil ditambahkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ClinicHoliday"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/doctor-leaves": {
+      "get": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Ambil Daftar Cuti Dokter",
+        "description": "Mengambil daftar riwayat/rencana cuti dokter dari hari ini ke depan. Bisa difilter berdasarkan dokter tertentu.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doctor_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter cuti berdasarkan ID dokter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar cuti dokter berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DoctorLeave"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Ajukan Cuti Dokter",
+        "description": "Mengajukan tanggal cuti untuk dokter tertentu. Sistem memiliki **proteksi pengajuan ganda**, melarang dokter yang sama terdaftar cuti lebih dari satu kali di tanggal yang sama.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "doctor_id",
+                  "leave_date"
+                ],
+                "properties": {
+                  "doctor_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "leave_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-06-01",
+                    "description": "Tanggal mulai cuti (Format: YYYY-MM-DD)"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "example": "Menghadiri konferensi kedokteran nasional"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cuti dokter berhasil didaftarkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DoctorLeave"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Gagal validasi atau dokter telah terdaftar cuti pada tanggal tersebut"
+          }
+        }
+      }
+    },
+    "/api/patients": {
+      "get": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Ambil Daftar Pasien",
+        "description": "Melihat daftar seluruh pasien aktif. Jika yang mengakses ber-role `patient`, maka respons otomatis dibatasi hanya mengembalikan data profil milik dirinya sendiri (mencegah kebocoran data).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar pasien berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Patient"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Daftarkan Pasien Baru (Oleh Admin)",
+        "description": "Mendaftarkan pasien baru dari sisi Admin. Secara transaksional membuat User (role `patient`) dan data `Patient` pendukung.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "password",
+                  "national_id",
+                  "gender",
+                  "birth_date",
+                  "phone",
+                  "address"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "budi@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "3201022208990001"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "Laki-laki",
+                      "Perempuan"
+                    ],
+                    "example": "Laki-laki"
+                  },
+                  "birth_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "1999-08-22"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "081234445555"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Mawar No. 12, Bandung"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pasien berhasil didaftarkan"
+          }
+        }
+      }
+    },
+    "/api/patients/{id}": {
+      "get": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Ambil Detail Pasien",
+        "description": "Mendapatkan detail profil pasien. Memiliki **proteksi IDOR**: pasien biasa dilarang keras mengintip profil pasien lain (403 Forbidden).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail pasien ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Patient"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses dilarang (IDOR protection)"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Perbarui Profil Pasien",
+        "description": "Memperbarui data profil pasien secara transaksional di tabel `patients` dan `users`. Dilengkapi **proteksi IDOR**: pasien biasa hanya boleh mengubah data miliknya sendiri.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Budi Santoso Nugroho"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "081234449999"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Mawar Merah No. 12A, Bandung"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profil berhasil diperbarui"
+          },
+          "403": {
+            "description": "Akses dilarang (mencoba mengubah data pasien lain)"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Hapus Pasien (Soft Delete)",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pasien berhasil dihapus"
+          }
+        }
+      }
+    },
+    "/api/patients/{id}/restore": {
+      "post": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Kembalikan Pasien Terhapus",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data pasien berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/queues": {
+      "get": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Ambil Semua Antrean",
+        "description": "Mengambil semua daftar antrean yang ada di klinik.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar antrian berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Queue"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Daftar Antrean Online / Booking Baru",
+        "description": "Mendaftarkan kunjungan antrean secara online. Memiliki serangkaian aturan bisnis ketat:\n1. **Proteksi IDOR**: Pasien dilarang mendaftarkan antrean atas nama `patient_id` milik orang lain.\n2. **Satu Antrean Aktif**: Pasien dilarang mendaftarkan antrean baru jika sudah memiliki antrean aktif (`booked`, `waiting`, `examining`) di poliklinik yang sama pada tanggal tersebut.\n3. **Jadwal H-7 s/d H-1**: Pendaftaran hanya diperbolehkan dilakukan 1 hingga 7 hari sebelum kunjungan.\n4. **Kesesuaian Jadwal**: Dokter pilihan harus memiliki shift praktik aktif di hari kunjungan tersebut.\n5. **Kuota Dinamis**: Sistem mengalkulasi kuota otomatis berdasarkan durasi jam kerja dokter (durasi_menit / 15). Jika terlampaui, pendaftaran ditolak.\n6. **Race Condition Lock**: Mengunci baris poliklinik (`lockForUpdate`) untuk menghindari duplikasi penomoran antrean ber-prefix kode poliklinik (cth: GIG-001, GIG-002, dst).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "patient_id",
+                  "polyclinic_id",
+                  "doctor_id",
+                  "date"
+                ],
+                "properties": {
+                  "patient_id": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "ID Pasien"
+                  },
+                  "polyclinic_id": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "ID Poliklinik tujuan"
+                  },
+                  "doctor_id": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "ID Dokter pilihan"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-05-27",
+                    "description": "Tanggal rencana kunjungan (Format: YYYY-MM-DD, harus H-7 s/d H-1)"
+                  },
+                  "is_priority": {
+                    "type": "boolean",
+                    "example": false,
+                    "description": "Apakah pasien membutuhkan prioritas (cth: lansia/ibu hamil)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Antrean berhasil dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Antrian berhasil dibuat"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Queue"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses dilarang (mendaftarkan pasien lain)"
+          },
+          "422": {
+            "description": "Aturan bisnis dilanggar (antrean ganda, di luar H-7 s/d H-1, kuota penuh, atau tidak ada jadwal dokter)"
+          }
+        }
+      }
+    },
+    "/api/queues/{id}": {
+      "get": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Ambil Detail Antrean",
+        "description": "Mengambil detail antrean tertentu. Pasien dilarang melihat detail antrean milik orang lain (Proteksi IDOR).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail antrean ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Queue"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses dilarang (IDOR)"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Perbarui Status Antrean / Panggil Pasien",
+        "description": "Hanya diizinkan untuk Admin dan Dokter. Memperbarui status antrean (cth: `waiting`, `examining`, `completed`). \nJika status diubah ke `examining` (mulai diperiksa):\n1. Sistem memvalidasi tidak boleh ada antrean lain yang sedang berstatus `examining` di poliklinik tersebut secara bersamaan.\n2. Dokter terkait harus berstatus online (`is_online` = true).\n3. Secara otomatis mencatat `called_time`.\n4. Secara otomatis mengirim notifikasi push Firebase FCM kepada pasien tujuan (\"Giliran Anda!\").",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "booked",
+                      "waiting",
+                      "examining",
+                      "completed",
+                      "cancelled"
+                    ],
+                    "example": "examining",
+                    "description": "Status antrean baru"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status antrean berhasil diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Queue"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Gagal update status (masih ada pasien lain diperiksa, atau dokter sedang offline)"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Batalkan Antrean Pasien",
+        "description": "Membatalkan antrean (mengubah status menjadi `cancelled`). Memiliki **proteksi integritas**: hanya antrean yang statusnya masih `booked` (belum diproses/belum checkin) yang dapat dibatalkan. Antrean yang sudah di ruang periksa atau selesai dilarang dibatalkan. Pasien dilarang membatalkan antrean milik orang lain.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Antrean berhasil dibatalkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Antrian berhasil dibatalkan"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Antrean yang sedang diperiksa atau sudah selesai tidak dapat dibatalkan."
+          }
+        }
+      }
+    },
+    "/api/queues/{id}/restore": {
+      "post": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Kembalikan Antrean Terhapus",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data antrean berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/examinations": {
+      "get": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Ambil Rekam Medis (Daftar Pemeriksaan)",
+        "description": "Mengambil semua riwayat rekam medis (pemeriksaan). Keamanan data sangat ketat:\n1. **Role Pasien**: Hanya diizinkan melihat daftar rekam medis miliknya sendiri.\n2. **Role Dokter**: Hanya diizinkan melihat rekam medis dari pasien yang berobat di polikliniknya sendiri.\n3. **Filter Pasien**: Dapat menggunakan parameter `patient_user_id` untuk mencari riwayat spesifik pasien (oleh Dokter/Admin).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "patient_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter rekam medis berdasarkan ID User pasien"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar rekam medis berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Examination"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Simpan Hasil Pemeriksaan Dokter (Rekam Medis)",
+        "description": "Hanya diizinkan untuk Dokter dan Admin. Menyimpan diagnosis, keluhan, dan tindakan pengobatan pasien. \nSistem memvalidasi status antrean bersangkutan harus sedang berada di ruang pemeriksaan (`status` = `examining`). Setelah data pemeriksaan berhasil disimpan, sistem secara **otomatis mengubah status antrean menjadi `completed`**.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "queue_id",
+                  "doctor_id",
+                  "complaint",
+                  "diagnosis",
+                  "treatment"
+                ],
+                "properties": {
+                  "queue_id": {
+                    "type": "integer",
+                    "example": 5,
+                    "description": "ID Antrean rujukan"
+                  },
+                  "doctor_id": {
+                    "type": "integer",
+                    "example": 1,
+                    "description": "ID Dokter pemeriksa"
+                  },
+                  "complaint": {
+                    "type": "string",
+                    "example": "Gigi geraham bawah kanan berlubang dan linu saat minum dingin.",
+                    "description": "Keluhan pasien"
+                  },
+                  "diagnosis": {
+                    "type": "string",
+                    "example": "Pulpitis Reversibel pada gigi 46",
+                    "description": "Diagnosis dokter"
+                  },
+                  "treatment": {
+                    "type": "string",
+                    "example": "Pembersihan kavitas + Penambalan sementara + Resep Asam Mefenamat 500mg (3x1).",
+                    "description": "Tindakan pengobatan / resep obat"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hasil pemeriksaan berhasil disimpan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Data pemeriksaan berhasil disimpan"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Examination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Antrean tidak sedang dalam status pemeriksaan (examining)"
+          }
+        }
+      }
+    },
+    "/api/examinations/{id}": {
+      "get": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Ambil Detail Rekam Medis",
+        "description": "Mendapatkan detail rekam medis. Dilengkapi keamanan ketat:\n- Pasien dilarang melihat rekam medis milik pasien lain.\n- Dokter dilarang melihat rekam medis pasien dari poliklinik lain di luar poliklinik asalnya.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail rekam medis ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Examination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses dilarang (di luar hak akses)"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Perbarui Hasil Pemeriksaan",
+        "description": "Hanya diizinkan untuk Dokter dan Admin. Pasien dilarang mengubah rekam medis (403). Dokter dilarang mengubah rekam medis milik poliklinik lain.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "diagnosis": {
+                    "type": "string",
+                    "example": "Diagnosis terupdate."
+                  },
+                  "treatment": {
+                    "type": "string",
+                    "example": "Tindakan terupdate."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data rekam medis berhasil diperbarui"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Hapus Rekam Medis (Soft Delete)",
+        "description": "Hanya untuk Dokter dan Admin. Menghapus rekam medis secara lunak.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data pemeriksaan berhasil dihapus"
+          }
+        }
+      }
+    },
+    "/api/examinations/{id}/restore": {
+      "post": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Kembalikan Rekam Medis Terhapus",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data pemeriksaan berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Ambil Semua Pengguna (Admin Only)",
+        "description": "Mengambil semua daftar user akun yang ada di sistem.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar user berhasil diambil"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Buat Pengguna Baru oleh Admin",
+        "description": "Hanya diizinkan membuat akun ber-role `doctor` atau `patient` saja.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "password",
+                  "role",
+                  "phone",
+                  "address",
+                  "national_id",
+                  "gender",
+                  "birth_date"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Admin Tambahan"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "admin2@nalaseva.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "doctor",
+                      "patient"
+                    ],
+                    "example": "doctor"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "081234567891"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Gading Raya No. 4"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "3201021234567812"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "Laki-laki",
+                      "Perempuan"
+                    ],
+                    "example": "Laki-laki"
+                  },
+                  "birth_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "1995-10-10"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User berhasil ditambahkan"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Ambil Detail Pengguna",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail user ditemukan"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Perbarui Pengguna",
+        "description": "Mengubah informasi detail user. Memiliki keamanan ketat: Pengguna dilarang keras mengedit akun milik user lainnya (403 Forbidden).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Nama Baru"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data user berhasil diperbarui"
+          },
+          "403": {
+            "description": "Akses ditolak (mencoba mengedit user lain)"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Hapus Pengguna (Dinonaktifkan)",
+        "description": "Berdasarkan kebijakan sistem terbaru, penghapusan langsung user oleh Admin dilarang keras untuk menjaga keamanan audit trail (selalu mengembalikan 403).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Akses ditolak. Kebijakan baru melarang penghapusan user oleh Admin."
+          }
+        }
+      }
+    },
+    "/api/users/{id}/restore": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Kembalikan Pengguna Terhapus",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data user berhasil dikembalikan"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sanctumAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Masukkan Token Bearer (Sanctum) yang diperoleh dari login atau registrasi."
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 5
+          },
+          "name": {
+            "type": "string",
+            "example": "Rezi Ardiansyah"
+          },
+          "email": {
+            "type": "string",
+            "example": "rezi@example.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "doctor",
+              "patient"
+            ],
+            "example": "patient"
+          },
+          "phone": {
+            "type": "string",
+            "example": "081234567890"
+          },
+          "address": {
+            "type": "string",
+            "example": "Jl. Merdeka No. 10, Jakarta Pusat"
+          },
+          "national_id": {
+            "type": "string",
+            "example": "3201021234567890"
+          },
+          "gender": {
+            "type": "string",
+            "example": "Laki-laki"
+          },
+          "birth_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2000-08-14"
+          },
+          "fcm_token": {
+            "type": "string",
+            "nullable": true,
+            "example": "fcm_token_example_123..."
+          },
+          "patient": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "integer",
+                "example": 1
+              },
+              "user_id": {
+                "type": "integer",
+                "example": 5
+              },
+              "medical_record_number": {
+                "type": "string",
+                "example": "NS-20260524-5"
+              }
+            }
+          },
+          "doctor": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "integer",
+                "example": 2
+              },
+              "user_id": {
+                "type": "integer",
+                "example": 6
+              },
+              "polyclinic_id": {
+                "type": "integer",
+                "example": 1
+              },
+              "specialization": {
+                "type": "string",
+                "example": "Spesialis Gigi Anak"
+              },
+              "license_number": {
+                "type": "string",
+                "example": "SIP-12345/2026/GIGI"
+              },
+              "is_online": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          }
+        }
+      },
+      "Doctor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "user_id": {
+            "type": "integer",
+            "example": 3
+          },
+          "polyclinic_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "specialization": {
+            "type": "string",
+            "example": "Spesialis Bedah Mulut"
+          },
+          "license_number": {
+            "type": "string",
+            "example": "SIP-7776/2026/GIGI"
+          },
+          "is_online": {
+            "type": "boolean",
+            "example": true
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "Patient": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "user_id": {
+            "type": "integer",
+            "example": 4
+          },
+          "medical_record_number": {
+            "type": "string",
+            "example": "NS-20260421-4"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "Polyclinic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "code": {
+            "type": "string",
+            "example": "GIG"
+          },
+          "name": {
+            "type": "string",
+            "example": "Poliklinik Gigi"
+          },
+          "description": {
+            "type": "string",
+            "example": "Poliklinik untuk merawat gigi."
+          }
+        }
+      },
+      "DoctorSchedule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "doctor_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "day_of_week": {
+            "type": "string",
+            "example": "Senin"
+          },
+          "start_time": {
+            "type": "string",
+            "example": "08:00"
+          },
+          "end_time": {
+            "type": "string",
+            "example": "12:00"
+          },
+          "doctor": {
+            "$ref": "#/components/schemas/Doctor"
+          }
+        }
+      },
+      "ClinicHoliday": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "holiday_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-06-25"
+          },
+          "description": {
+            "type": "string",
+            "example": "Hari Raya Idul Adha"
+          }
+        }
+      },
+      "DoctorLeave": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "doctor_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "leave_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-06-01"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Izin keluarga"
+          }
+        }
+      },
+      "Queue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "patient_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "polyclinic_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "doctor_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "queue_number": {
+            "type": "string",
+            "example": "GIG-003"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-05-27"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "booked",
+              "waiting",
+              "examining",
+              "completed",
+              "cancelled"
+            ],
+            "example": "booked"
+          },
+          "is_priority": {
+            "type": "boolean",
+            "example": false
+          },
+          "check_in_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-05-27T08:15:30Z"
+          },
+          "called_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-05-27T09:05:00Z"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/Patient"
+          }
+        }
+      },
+      "Examination": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "queue_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "doctor_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "complaint": {
+            "type": "string",
+            "example": "Gigi geraham linu."
+          },
+          "diagnosis": {
+            "type": "string",
+            "example": "Pulpitis."
+          },
+          "treatment": {
+            "type": "string",
+            "example": "Resep obat nyeri."
+          },
+          "queue": {
+            "$ref": "#/components/schemas/Queue"
+          },
+          "doctor": {
+            "$ref": "#/components/schemas/Doctor"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Pesan deskripsi kesalahan"
+          }
+        }
+      }
+    }
+  }
+}
