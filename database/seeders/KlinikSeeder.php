@@ -16,7 +16,19 @@ class KlinikSeeder extends Seeder
 
         //  Insert 15 Users
         DB::table('users')->insert([
-            ['name' => 'Admin Puskesmas', 'email' => 'admin@gmail.com', 'password' => $password, 'role' => 'admin', 'created_at' => $now, 'updated_at' => $now],
+            [
+                'name' => 'Admin Puskesmas', 
+                'email' => 'admin@gmail.com', 
+                'password' => $password, 
+                'role' => 'admin', 
+                'phone' => '081234567890',
+                'address' => 'Jl. Kesehatan No. 1, Puskesmas Admin',
+                'national_id' => '1234567890123456',
+                'gender' => 'Laki-laki',
+                'birth_date' => '1990-01-01',
+                'created_at' => $now, 
+                'updated_at' => $now
+            ],
         ]);
     }
 }
