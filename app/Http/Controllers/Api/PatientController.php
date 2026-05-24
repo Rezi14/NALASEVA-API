@@ -31,8 +31,8 @@ class PatientController extends Controller
             'national_id'    => ['required', 'digits:16', Rule::unique('users')->whereNull('deleted_at')],
             'gender'         => 'required|string|in:Laki-laki,Perempuan',
             'birth_date'     => 'required|date_format:Y-m-d',
-            'phone'          => 'nullable|string|max:20',
-            'address'        => 'nullable|string|max:255',
+            'phone'          => 'required|string|max:20',
+            'address'        => 'required|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -94,10 +94,11 @@ class PatientController extends Controller
             $validator = Validator::make($request->all(), [
                 'name'                  => 'sometimes|required|string|max:255',
                 'full_name'             => 'sometimes|required|string|max:255',
-                'phone'                 => 'sometimes|nullable|string|max:20',
-                'phone_number'          => 'sometimes|nullable|string|max:20',
+                'phone'                 => 'sometimes|required|string|max:20',
+                'phone_number'          => 'sometimes|required|string|max:20',
                 'gender'                => 'sometimes|required|string|in:Laki-laki,Perempuan',
                 'birth_date'            => 'sometimes|required|date_format:Y-m-d',
+                'address'               => 'sometimes|required|string|max:255',
                 'national_id'           => ['sometimes', 'required', 'digits:16', Rule::unique('users')->ignore($patient->user_id)->whereNull('deleted_at')],
                 'email'                 => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($patient->user_id)->whereNull('deleted_at')],
             ]);
@@ -133,6 +134,10 @@ class PatientController extends Controller
                 
                 if (isset($validatedData['birth_date'])) {
                     $userData['birth_date'] = $validatedData['birth_date'];
+                }
+                
+                if (isset($validatedData['address'])) {
+                    $userData['address'] = $validatedData['address'];
                 }
                 
                 if (isset($validatedData['national_id'])) {

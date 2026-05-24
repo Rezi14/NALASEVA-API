@@ -40,20 +40,17 @@ class DashboardController extends Controller
                 ->where('status', 'cancelled')
                 ->count();
 
-            // 3. Ambil statistik antrean per-poliklinik hari ini
+            // 3. Ambil statistik antrean per-poliklinik hari ini dengan 1 query tunggal (mencegah N+1)
+            $todayQueues = Queue::where('date', $today)->get();
             $polyclinics = Polyclinic::all();
-            $polyclinicStats = $polyclinics->map(function ($poly) use ($today) {
+
+            $polyclinicStats = $polyclinics->map(function ($poly) use ($todayQueues) {
+                $polyQueues = $todayQueues->where('polyclinic_id', $poly->id);
                 return [
                     'polyclinic_id' => $poly->id,
                     'name' => $poly->name,
-                    'active_queue_count' => Queue::where('polyclinic_id', $poly->id)
-                        ->where('date', $today)
-                        ->whereIn('status', ['booked', 'waiting', 'examining'])
-                        ->count(),
-                    'waiting_queue_count' => Queue::where('polyclinic_id', $poly->id)
-                        ->where('date', $today)
-                        ->where('status', 'waiting')
-                        ->count(),
+                    'active_queue_count' => $polyQueues->whereIn('status', ['booked', 'waiting', 'examining'])->count(),
+                    'waiting_queue_count' => $polyQueues->where('status', 'waiting')->count(),
                 ];
             });
 

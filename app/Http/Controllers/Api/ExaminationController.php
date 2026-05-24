@@ -15,7 +15,7 @@ class ExaminationController extends Controller
     use ApiResponse;
 
     public function index(Request $request) {
-        $query = Examination::with(['queue.polyclinic', 'doctor.user']);
+        $query = Examination::with(['queue.polyclinic', 'queue.patient.user', 'doctor.user']);
         $user = $request->user();
 
         if ($user->role === 'patient') {

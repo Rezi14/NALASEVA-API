@@ -116,18 +116,13 @@ class QueueController extends Controller
                 
                 $queueNumber = sprintf('%s-%03d', $prefix, $nextNumber);
 
-                // Hitung estimasi jam pelayanan: start_time + (nextNumber - 1) * 15 menit
-                $startTimeCarbon = \Carbon\Carbon::parse($schedule->start_time);
-                $estimatedServiceTime = $startTimeCarbon->copy()->addMinutes(($nextNumber - 1) * 15)->format('H:i:s');
-
                 // Perbaikan Mass Assignment: Hanya simpan data yang tervalidasi
                 $data = $validator->validated();
                 $data['queue_number'] = $queueNumber;
                 $data['status'] = 'booked';
-                $data['estimated_service_time'] = $estimatedServiceTime;
 
                 $queue = Queue::storeData($data);
-                return $this->successResponse($queue, 'Antrian berhasil dibuat', 201);
+                return $this->successResponse(Queue::getById($queue->id), 'Antrian berhasil dibuat', 201);
             });
         } catch (\Exception $e) {
             return $this->errorResponse('Terjadi kesalahan sistem saat mengambil nomor antrean', 500);
@@ -167,12 +162,44 @@ class QueueController extends Controller
 
             $validatedData = $validator->validated();
             if (isset($validatedData['status']) && $validatedData['status'] === 'examining') {
+                $queueToUpdate = Queue::findOrFail($id);
+                $existingExamining = Queue::where('polyclinic_id', $queueToUpdate->polyclinic_id)
+                    ->where('date', $queueToUpdate->date)
+                    ->where('status', 'examining')
+                    ->where('id', '!=', $id)
+                    ->exists();
+
+                if ($existingExamining) {
+                    return $this->errorResponse('Tidak dapat memanggil pasien. Masih ada pasien yang sedang diperiksa di poliklinik ini.', 422);
+                }
+
+                $doctor = \App\Models\Doctor::find($queueToUpdate->doctor_id);
+                if ($doctor && !$doctor->is_online) {
+                    return $this->errorResponse('Tidak dapat memanggil pasien. Dokter yang bersangkutan sedang beristirahat/offline.', 422);
+                }
+
                 $validatedData['called_time'] = now();
             }
 
             // Perbaikan Mass Assignment Bypass
             $data = Queue::updateData($id, $validatedData);
-            return $this->successResponse($data, 'Status antrian berhasil diperbarui');
+
+            if (isset($validatedData['status']) && $validatedData['status'] === 'examining') {
+                $updatedQueue = Queue::with('patient.user')->find($id);
+                $fcmToken = $updatedQueue->patient->user->fcm_token ?? null;
+                
+                if ($fcmToken) {
+                    $firebaseService = new \App\Services\FirebaseNotificationService();
+                    $title = "Giliran Anda!";
+                    $body = "Silakan masuk ke ruangan dokter sekarang (Nomor Antrean: {$updatedQueue->queue_number}).";
+                    $firebaseService->sendToToken($fcmToken, $title, $body, [
+                        'queue_id' => $id,
+                        'status' => 'examining'
+                    ]);
+                }
+            }
+
+            return $this->successResponse(Queue::getById($id), 'Status antrian berhasil diperbarui');
         } catch (Exception $e) {
             return $this->errorResponse('Gagal memperbarui, data antrian tidak ditemukan', 404);
         }
@@ -268,31 +295,12 @@ class QueueController extends Controller
                 $prefix = strtoupper($polyclinic->code);
                 $newQueueNumber = sprintf('%s-%03d', $prefix, $nextNumber);
 
-                // Tambahkan waktu pelayanan baru untuk posisi paling belakang
-                $dayOfWeekEnglish = \Carbon\Carbon::parse($queue->date)->format('l');
-                $days = [
-                    'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa', 
-                    'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'
-                ];
-                $dayName = $days[$dayOfWeekEnglish];
-
-                $schedule = \App\Models\DoctorSchedule::where('doctor_id', $queue->doctor_id)
-                    ->where('day_of_week', $dayName)
-                    ->first();
-                
-                $estimatedServiceTime = null;
-                if ($schedule) {
-                    $startTimeCarbon = \Carbon\Carbon::parse($schedule->start_time);
-                    $estimatedServiceTime = $startTimeCarbon->copy()->addMinutes(($nextNumber - 1) * 15)->format('H:i:s');
-                }
-
                 $queue->update([
                     'queue_number' => $newQueueNumber,
                     'status' => 'booked', // kembalikan ke status booked agar harus check-in kembali
-                    'estimated_service_time' => $estimatedServiceTime,
                 ]);
 
-                return $this->successResponse($queue, 'Antrean berhasil digeser ke urutan paling belakang');
+                return $this->successResponse(Queue::getById($queue->id), 'Antrean berhasil digeser ke urutan paling belakang');
             });
         } catch (Exception $e) {
             return $this->errorResponse('Gagal menggeser antrean ke urutan paling belakang', 500);

@@ -172,11 +172,11 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
             'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)->whereNull('deleted_at')],
-            'phone' => 'sometimes|nullable|string|max:20',
-            'address' => 'sometimes|nullable|string',
-            'national_id' => 'sometimes|nullable|digits:16',
-            'gender' => 'sometimes|nullable|string|in:Laki-laki,Perempuan',
-            'birth_date' => 'sometimes|nullable|date_format:Y-m-d',
+            'phone' => 'sometimes|required|string|max:20',
+            'address' => 'sometimes|required|string',
+            'national_id' => 'sometimes|required|digits:16',
+            'gender' => 'sometimes|required|string|in:Laki-laki,Perempuan',
+            'birth_date' => 'sometimes|required|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {

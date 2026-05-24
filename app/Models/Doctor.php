@@ -8,7 +8,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Doctor extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['user_id', 'polyclinic_id', 'specialization', 'license_number'];
+    protected $fillable = ['user_id', 'polyclinic_id', 'specialization', 'license_number', 'is_online'];
+
+    protected $casts = [
+        'is_online' => 'boolean',
+    ];
 
     protected static function booted()
     {

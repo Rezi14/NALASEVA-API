@@ -27,6 +27,41 @@ class DoctorController extends Controller
         return $this->successResponse(Doctor::getById($doctor->id), 'Profil dokter berhasil diambil');
     }
 
+    public function updateStatus(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'is_online' => 'required|boolean'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), 422);
+        }
+
+        $doctor = Doctor::where('user_id', $request->user()->id)->first();
+        if (!$doctor) {
+            return $this->errorResponse('Data dokter tidak ditemukan', 404);
+        }
+
+        $doctor->update(['is_online' => $request->is_online]);
+
+        if (!$request->is_online) {
+            // Notify Admins
+            $admins = User::where('role', 'admin')->whereNotNull('fcm_token')->get();
+            if ($admins->isNotEmpty()) {
+                $firebaseService = new \App\Services\FirebaseNotificationService();
+                $title = "Dokter Sedang Istirahat";
+                $body = "Dokter " . $request->user()->name . " sedang beristirahat. Mohon jangan panggil antrean untuk sementara.";
+                foreach ($admins as $admin) {
+                    $firebaseService->sendToToken($admin->fcm_token, $title, $body, [
+                        'type' => 'doctor_status',
+                        'doctor_id' => $doctor->id
+                    ]);
+                }
+            }
+        }
+
+        return $this->successResponse($doctor, 'Status berhasil diperbarui');
+    }
+
     public function store(Request $request) {
         $validator = Validator::make($request->all(), [
             'name'           => 'required|string|max:255',
@@ -36,10 +71,10 @@ class DoctorController extends Controller
             'specialization' => 'required|string|max:255',
             'license_number' => 'required|string|max:255',
             'national_id'    => 'required|string|digits:16|unique:users,national_id',
-            'gender'         => 'nullable|string|in:Laki-laki,Perempuan',
-            'birth_date'     => 'nullable|date_format:Y-m-d',
-            'phone'          => 'nullable|string|max:20',
-            'address'        => 'nullable|string|max:500',
+            'gender'         => 'required|string|in:Laki-laki,Perempuan',
+            'birth_date'     => 'required|date_format:Y-m-d',
+            'phone'          => 'required|string|max:20',
+            'address'        => 'required|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -83,10 +118,10 @@ class DoctorController extends Controller
                 'specialization' => 'sometimes|required|string|max:255',
                 'license_number' => 'sometimes|required|string|max:255',
                 'national_id'    => ['sometimes', 'required', 'string', 'digits:16', Rule::unique('users')->ignore($doctor->user_id)->whereNull('deleted_at')],
-                'gender'         => 'sometimes|nullable|string|in:Laki-laki,Perempuan',
-                'birth_date'     => 'sometimes|nullable|date_format:Y-m-d',
-                'phone'          => 'sometimes|nullable|string|max:20',
-                'address'        => 'sometimes|nullable|string|max:500',
+                'gender'         => 'sometimes|required|string|in:Laki-laki,Perempuan',
+                'birth_date'     => 'sometimes|required|date_format:Y-m-d',
+                'phone'          => 'sometimes|required|string|max:20',
+                'address'        => 'sometimes|required|string|max:500',
             ]);
 
             if ($validator->fails()) {

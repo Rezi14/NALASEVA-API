@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Custom API Mobile Features
     Route::get('doctors/profile', [DoctorController::class, 'myProfile']);
+    Route::patch('doctors/me/status', [DoctorController::class, 'updateStatus']);
     Route::post('queues/{id}/checkin', [QueueController::class, 'checkIn']);
     Route::post('queues/{id}/skip', [QueueController::class, 'skip']);
 

@@ -15,8 +15,8 @@ return new class extends Migration {
             $table->foreignId('queue_id')->constrained('queues')->onDelete('cascade');
             $table->foreignId('doctor_id')->constrained('doctors')->onDelete('cascade');
             $table->text('complaint');
-            $table->text('diagnosis')->nullable();
-            $table->text('treatment')->nullable();
+            $table->text('diagnosis');
+            $table->text('treatment');
             $table->timestamps();
             $table->softDeletes();
         });

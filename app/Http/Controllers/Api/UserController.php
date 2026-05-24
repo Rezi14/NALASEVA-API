@@ -24,8 +24,11 @@ class UserController extends Controller
             'email'    => ['required', 'email', Rule::unique('users')->whereNull('deleted_at')],
             'password' => 'required|string|min:6',
             'role'     => 'required|string|in:doctor,patient', // Admin can only create Doctor or Patient
-            'phone'    => 'nullable|string|max:20',
-            'address'  => 'nullable|string',
+            'phone'       => 'required|string|max:20',
+            'address'     => 'required|string',
+            'national_id' => ['required', 'digits:16', Rule::unique('users')->whereNull('deleted_at')],
+            'gender'      => 'required|string|in:Laki-laki,Perempuan',
+            'birth_date'  => 'required|date_format:Y-m-d',
         ]);
 
         if ($validator->fails()) {
@@ -55,8 +58,11 @@ class UserController extends Controller
                 'name'     => 'sometimes|required|string|max:255',
                 'email'    => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
                 'password' => 'sometimes|nullable|string|min:6',
-                'phone'    => 'sometimes|nullable|string|max:20',
-                'address'  => 'sometimes|nullable|string',
+                'phone'       => 'sometimes|required|string|max:20',
+                'address'     => 'sometimes|required|string',
+                'national_id' => ['sometimes', 'required', 'digits:16', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
+                'gender'      => 'sometimes|required|string|in:Laki-laki,Perempuan',
+                'birth_date'  => 'sometimes|required|date_format:Y-m-d',
             ]);
 
             if ($validator->fails()) {
