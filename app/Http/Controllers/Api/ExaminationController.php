@@ -71,12 +71,18 @@ class ExaminationController extends Controller
             return $this->errorResponse('Pasien belum dipanggil / antrean tidak dalam status pemeriksaan', 400);
         }
 
-        $data = Examination::storeData($validator->validated());
+        try {
+            return \Illuminate\Support\Facades\DB::transaction(function() use ($validator, $queue) {
+                $data = Examination::storeData($validator->validated());
 
-        // Update status antrean menjadi 'completed' secara otomatis
-        $queue->update(['status' => 'completed']);
+                // Update status antrean menjadi 'completed' secara otomatis
+                $queue->update(['status' => 'completed']);
 
-        return $this->successResponse($data, 'Data pemeriksaan berhasil disimpan', 201);
+                return $this->successResponse($data, 'Data pemeriksaan berhasil disimpan', 201);
+            });
+        } catch (\Exception $e) {
+            return $this->errorResponse('Gagal menyimpan rekam medis: ' . $e->getMessage(), 500);
+        }
     }
 
     public function show(Request $request, $id) {
