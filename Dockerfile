@@ -7,7 +7,7 @@ RUN apk add --no-cache \
     curl \
     libpq-dev \
     bash \
-    & \
+    && \
     docker-php-ext-install pdo pdo_pgsql
 
 # Install Composer
