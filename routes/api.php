@@ -13,9 +13,9 @@ use App\Http\Controllers\Api\ClinicHolidayController;
 use App\Http\Controllers\Api\DoctorLeaveController;
 
 // --- Public Routes ---
-Route::post('auth/login', [AuthController::class, 'login']);
-Route::post('auth/register', [AuthController::class, 'register']);
-Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:auth');
+Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 
 // --- Protected Routes ---
 Route::middleware('auth:sanctum')->group(function () {

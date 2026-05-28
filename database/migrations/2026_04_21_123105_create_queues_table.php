@@ -12,17 +12,21 @@ return new class extends Migration {
     {
         Schema::create('queues', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('patient_id')->constrained('patients')->onDelete('cascade');
-            $table->foreignId('polyclinic_id')->constrained('polyclinics')->onDelete('cascade');
-            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('cascade');
+            $table->foreignId('patient_id')->constrained('patients')->onDelete('cascade')->index();
+            $table->foreignId('polyclinic_id')->constrained('polyclinics')->onDelete('cascade')->index();
+            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('cascade')->index();
             $table->string('queue_number');
-            $table->date('date');
-            $table->enum('status', ['booked', 'waiting', 'examining', 'completed', 'cancelled'])->default('booked');
+            $table->date('date')->index();
+            $table->enum('status', ['booked', 'waiting', 'examining', 'completed', 'cancelled'])->default('booked')->index();
             $table->timestamp('check_in_time')->nullable();
             $table->timestamp('called_time')->nullable();
             $table->boolean('is_priority')->default(false)->comment('Jika true, trigger alert ke dokter');
             $table->timestamps();
             $table->softDeletes();
+
+            // Composite indexes for fast polyclinic/doctor daily queue lookups
+            $table->index(['polyclinic_id', 'date', 'status'], 'queues_poly_date_status_idx');
+            $table->index(['doctor_id', 'date', 'status'], 'queues_doc_date_status_idx');
         });
     }
 

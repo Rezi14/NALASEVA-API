@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Doctor;
 use App\Models\User;
 use App\Traits\ApiResponse;
+use App\Http\Requests\StoreDoctorRequest;
+use App\Http\Requests\UpdateDoctorRequest;
+use App\Http\Resources\DoctorResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Exception;
 
 class DoctorController extends Controller
@@ -16,7 +18,8 @@ class DoctorController extends Controller
     use ApiResponse;
 
     public function index() {
-        return $this->successResponse(Doctor::getAll(), 'Daftar dokter berhasil diambil');
+        $doctors = Doctor::with(['user', 'polyclinic'])->get();
+        return $this->successResponse(DoctorResource::collection($doctors), 'Daftar dokter berhasil diambil');
     }
 
     public function myProfile(Request $request) {
@@ -24,7 +27,8 @@ class DoctorController extends Controller
         if (!$doctor) {
             return $this->errorResponse('Data profil dokter tidak ditemukan', 404);
         }
-        return $this->successResponse(Doctor::getById($doctor->id), 'Profil dokter berhasil diambil');
+        $doctor->load(['user', 'polyclinic']);
+        return $this->successResponse(new DoctorResource($doctor), 'Profil dokter berhasil diambil');
     }
 
     public function updateStatus(Request $request) {
@@ -59,28 +63,11 @@ class DoctorController extends Controller
             }
         }
 
-        return $this->successResponse($doctor, 'Status berhasil diperbarui');
+        $doctor->load(['user', 'polyclinic']);
+        return $this->successResponse(new DoctorResource($doctor), 'Status berhasil diperbarui');
     }
 
-    public function store(Request $request) {
-        $validator = Validator::make($request->all(), [
-            'name'           => 'required|string|max:255',
-            'email'          => 'required|email|unique:users,email',
-            'password'       => 'required|string|min:6',
-            'polyclinic_id'  => 'required|integer|exists:polyclinics,id',
-            'specialization' => 'required|string|max:255',
-            'license_number' => 'required|string|max:255',
-            'national_id'    => 'required|string|digits:16|unique:users,national_id',
-            'gender'         => 'required|string|in:Laki-laki,Perempuan',
-            'birth_date'     => 'required|date_format:Y-m-d',
-            'phone'          => 'required|string|max:20',
-            'address'        => 'required|string|max:500',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse($validator->errors()->first(), 422);
-        }
-
+    public function store(StoreDoctorRequest $request) {
         try {
             return \DB::transaction(function() use ($request) {
                 $user = User::create([
@@ -102,33 +89,18 @@ class DoctorController extends Controller
                     'license_number' => $request->license_number,
                 ]);
 
-                return $this->successResponse(Doctor::getById($doctor->id), 'Dokter berhasil ditambahkan', 201);
+                $doctor->load(['user', 'polyclinic']);
+                return $this->successResponse(new DoctorResource($doctor), 'Dokter berhasil ditambahkan', 201);
             });
         } catch (Exception $e) {
             return $this->errorResponse('Gagal menambahkan dokter: ' . $e->getMessage(), 500);
         }
     }
 
-    public function update(Request $request, $id) {
+    public function update(UpdateDoctorRequest $request, $id) {
         try {
             $doctor = Doctor::findOrFail($id);
-            $validator = Validator::make($request->all(), [
-                'name'           => 'sometimes|required|string|max:255',
-                'polyclinic_id'  => 'sometimes|required|integer|exists:polyclinics,id',
-                'specialization' => 'sometimes|required|string|max:255',
-                'license_number' => 'sometimes|required|string|max:255',
-                'national_id'    => ['sometimes', 'required', 'string', 'digits:16', Rule::unique('users')->ignore($doctor->user_id)->whereNull('deleted_at')],
-                'gender'         => 'sometimes|required|string|in:Laki-laki,Perempuan',
-                'birth_date'     => 'sometimes|required|date_format:Y-m-d',
-                'phone'          => 'sometimes|required|string|max:20',
-                'address'        => 'sometimes|required|string|max:500',
-            ]);
-
-            if ($validator->fails()) {
-                return $this->errorResponse($validator->errors()->first(), 422);
-            }
-
-            $data = $validator->validated();
+            $data = $request->validated();
 
             return \DB::transaction(function() use ($data, $doctor) {
                 // Update User fields
@@ -143,7 +115,8 @@ class DoctorController extends Controller
                     $doctor->update($doctorData);
                 }
                 
-                return $this->successResponse(Doctor::getById($doctor->id), 'Data dokter berhasil diperbarui');
+                $doctor->load(['user', 'polyclinic']);
+                return $this->successResponse(new DoctorResource($doctor), 'Data dokter berhasil diperbarui');
             });
         } catch (Exception $e) {
             return $this->errorResponse('Gagal memperbarui, data dokter tidak ditemukan', 404);

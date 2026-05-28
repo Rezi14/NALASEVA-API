@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Queue;
 use App\Traits\ApiResponse;
+use App\Http\Requests\StoreQueueRequest;
+use App\Http\Requests\UpdateQueueRequest;
+use App\Http\Resources\QueueResource;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
@@ -14,23 +16,33 @@ class QueueController extends Controller
 {
     use ApiResponse;
 
-    public function index() {
-        return $this->successResponse(Queue::getAll(), 'Daftar antrian berhasil diambil');
-    }
-
-    public function store(Request $request) {
-        $validator = Validator::make($request->all(), [
-            'patient_id'    => 'required|integer|exists:patients,id',
-            'polyclinic_id' => 'required|integer|exists:polyclinics,id',
-            'doctor_id'     => 'required|integer|exists:doctors,id',
-            'date'          => 'required|date',
-            'is_priority'   => 'sometimes|boolean'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse(implode(', ', $validator->errors()->all()), 422);
+    public function index(Request $request) {
+        if ($request->has('page') || $request->has('per_page') || $request->has('paginate')) {
+            $limit = $request->input('per_page', 20);
+            $query = Queue::with(['patient.user', 'polyclinic', 'doctor.user']);
+            
+            $user = $request->user();
+            if ($user->role === 'patient') {
+                $query->whereHas('patient', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            } elseif ($user->role === 'doctor') {
+                $doctor = \App\Models\Doctor::where('user_id', $user->id)->first();
+                if ($doctor) {
+                    $query->where('doctor_id', $doctor->id);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            }
+            
+            return $this->successResponse(QueueResource::collection($query->paginate($limit)), 'Daftar antrian berhasil diambil');
         }
 
+        $queues = Queue::getAll();
+        return $this->successResponse(QueueResource::collection($queues), 'Daftar antrian berhasil diambil');
+    }
+
+    public function store(StoreQueueRequest $request) {
         $user = $request->user();
 
         // Mencegah Celah IDOR: Pasien tidak bisa mendaftarkan antrean atas nama patient_id orang lain
@@ -91,13 +103,11 @@ class QueueController extends Controller
         }
 
         $polyclinic = \App\Models\Polyclinic::findOrFail($request->polyclinic_id);
-        
-        // Perbaikan Bug Prefix: Menggunakan kode poliklinik resmi dari database (misal: GIG, UM, dll)
         $prefix = strtoupper($polyclinic->code);
         
         try {
-            return DB::transaction(function () use ($request, $prefix, $validator, $schedule) {
-                // Perbaikan Race Condition: Lock row poliklinik agar lock tetap bekerja meski tabel antrean kosong
+            return DB::transaction(function () use ($request, $prefix, $schedule) {
+                // Perbaikan Race Condition: Lock row poliklinik
                 \App\Models\Polyclinic::where('id', $request->polyclinic_id)->lockForUpdate()->first();
 
                 $lastQueue = Queue::whereDate('date', $request->date)
@@ -116,13 +126,13 @@ class QueueController extends Controller
                 
                 $queueNumber = sprintf('%s-%03d', $prefix, $nextNumber);
 
-                // Perbaikan Mass Assignment: Hanya simpan data yang tervalidasi
-                $data = $validator->validated();
+                $data = $request->validated();
                 $data['queue_number'] = $queueNumber;
                 $data['status'] = 'booked';
 
                 $queue = Queue::storeData($data);
-                return $this->successResponse(Queue::getById($queue->id), 'Antrian berhasil dibuat', 201);
+                $queue->load(['patient.user', 'polyclinic', 'doctor.user']);
+                return $this->successResponse(new QueueResource($queue), 'Antrian berhasil dibuat', 201);
             });
         } catch (\Exception $e) {
             return $this->errorResponse('Terjadi kesalahan sistem saat mengambil nomor antrean', 500);
@@ -138,29 +148,20 @@ class QueueController extends Controller
                 return $this->errorResponse('Akses ditolak. Anda tidak dapat melihat detail antrean orang lain.', 403);
             }
 
-            return $this->successResponse($queue, 'Detail antrian ditemukan');
+            return $this->successResponse(new QueueResource($queue), 'Detail antrian ditemukan');
         } catch (Exception $e) {
             return $this->errorResponse('Data antrian tidak ditemukan', 404);
         }
     }
 
-    public function update(Request $request, $id) {
+    public function update(UpdateQueueRequest $request, $id) {
         try {
-            $validator = Validator::make($request->all(), [
-                'status' => 'sometimes|required|string'
-            ]);
-
             $user = $request->user();
-            // BUG-8 Security Fix: Hanya Admin dan Dokter yang bisa mengubah status antrean (IDOR Protection)
             if ($user->role === 'patient') {
                 return $this->errorResponse('Akses ditolak. Pasien tidak diizinkan mengubah status antrean.', 403);
             }
 
-            if ($validator->fails()) {
-                return $this->errorResponse(implode(', ', $validator->errors()->all()), 422);
-            }
-
-            $validatedData = $validator->validated();
+            $validatedData = $request->validated();
             if (isset($validatedData['status']) && $validatedData['status'] === 'examining') {
                 $queueToUpdate = Queue::findOrFail($id);
                 $existingExamining = Queue::where('polyclinic_id', $queueToUpdate->polyclinic_id)
@@ -181,7 +182,6 @@ class QueueController extends Controller
                 $validatedData['called_time'] = now();
             }
 
-            // Perbaikan Mass Assignment Bypass
             $data = Queue::updateData($id, $validatedData);
 
             if (isset($validatedData['status']) && $validatedData['status'] === 'examining') {
@@ -199,7 +199,8 @@ class QueueController extends Controller
                 }
             }
 
-            return $this->successResponse(Queue::getById($id), 'Status antrian berhasil diperbarui');
+            $queue = Queue::getById($id);
+            return $this->successResponse(new QueueResource($queue), 'Status antrian berhasil diperbarui');
         } catch (Exception $e) {
             return $this->errorResponse('Gagal memperbarui, data antrian tidak ditemukan', 404);
         }
@@ -210,18 +211,17 @@ class QueueController extends Controller
             $queue = Queue::findOrFail($id);
             $user = $request->user();
 
-            // Mencegah Celah Keamanan IDOR: Pasien tidak boleh menghapus antrean milik orang lain
             if ($user->role === 'patient' && ($queue->patient?->user_id ?? null) !== $user->id) {
                 return $this->errorResponse('Akses ditolak. Anda hanya dapat membatalkan antrean Anda sendiri.', 403);
             }
 
-            // BUG-9 Integrity Fix: Hanya bisa membatalkan antrean yang belum diproses (booked)
             if ($queue->status !== 'booked') {
                 return $this->errorResponse('Antrean yang sedang diperiksa atau sudah selesai tidak dapat dibatalkan.', 422);
             }
 
             $queue->update(['status' => 'cancelled']);
-            return $this->successResponse($queue, 'Antrian berhasil dibatalkan');
+            $queue->load(['patient.user', 'polyclinic', 'doctor.user']);
+            return $this->successResponse(new QueueResource($queue), 'Antrian berhasil dibatalkan');
         } catch (Exception $e) {
             return $this->errorResponse('Gagal membatalkan, data antrian tidak ditemukan', 404);
         }
@@ -238,7 +238,6 @@ class QueueController extends Controller
 
     public function checkIn(Request $request, $id) {
         try {
-            // Perbaikan Keamanan: Hanya ADMIN yang boleh mengubah status check-in via scanner pendaftaran
             if ($request->user()->role !== 'admin') {
                 return $this->errorResponse('Akses ditolak. Hanya petugas administrasi yang dapat memverifikasi Check-in.', 403);
             }
@@ -258,7 +257,7 @@ class QueueController extends Controller
                 'check_in_time' => now()
             ]);
 
-            return $this->successResponse($queue, 'Check-in berhasil via QR Scanner');
+            return $this->successResponse(new QueueResource($queue), 'Check-in berhasil via QR Scanner');
         } catch (Exception $e) {
             return $this->errorResponse('Data antrean tidak ditemukan', 404);
         }
@@ -297,10 +296,11 @@ class QueueController extends Controller
 
                 $queue->update([
                     'queue_number' => $newQueueNumber,
-                    'status' => 'booked', // kembalikan ke status booked agar harus check-in kembali
+                    'status' => 'booked',
                 ]);
 
-                return $this->successResponse(Queue::getById($queue->id), 'Antrean berhasil digeser ke urutan paling belakang');
+                $updated = Queue::getById($queue->id);
+                return $this->successResponse(new QueueResource($updated), 'Antrean berhasil digeser ke urutan paling belakang');
             });
         } catch (Exception $e) {
             return $this->errorResponse('Gagal menggeser antrean ke urutan paling belakang', 500);

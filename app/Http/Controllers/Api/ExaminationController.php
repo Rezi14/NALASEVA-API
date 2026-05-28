@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Examination;
 use App\Models\Queue;
 use App\Traits\ApiResponse;
+use App\Http\Requests\StoreExaminationRequest;
+use App\Http\Requests\UpdateExaminationRequest;
+use App\Http\Resources\ExaminationResource;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Exception;
 
 class ExaminationController extends Controller
@@ -50,35 +52,29 @@ class ExaminationController extends Controller
             });
         }
 
-        return $this->successResponse($query->get(), 'Daftar rekam medis berhasil diambil');
-    }
-
-    public function store(Request $request) {
-        $validator = Validator::make($request->all(), [
-            'queue_id'  => 'required|integer|exists:queues,id',
-            'doctor_id' => 'required|integer|exists:doctors,id',
-            'complaint' => 'required|string',
-            'diagnosis' => 'required|string',
-            'treatment' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse($validator->errors()->first(), 422);
+        if ($request->has('page') || $request->has('per_page') || $request->has('paginate')) {
+            $limit = $request->input('per_page', 20);
+            return $this->successResponse(ExaminationResource::collection($query->paginate($limit)), 'Daftar rekam medis berhasil diambil');
         }
 
+        return $this->successResponse(ExaminationResource::collection($query->get()), 'Daftar rekam medis berhasil diambil');
+    }
+
+    public function store(StoreExaminationRequest $request) {
         $queue = Queue::findOrFail($request->queue_id);
         if ($queue->status !== 'examining') {
             return $this->errorResponse('Pasien belum dipanggil / antrean tidak dalam status pemeriksaan', 400);
         }
 
         try {
-            return \Illuminate\Support\Facades\DB::transaction(function() use ($validator, $queue) {
-                $data = Examination::storeData($validator->validated());
+            return \Illuminate\Support\Facades\DB::transaction(function() use ($request, $queue) {
+                $data = Examination::storeData($request->validated());
 
                 // Update status antrean menjadi 'completed' secara otomatis
                 $queue->update(['status' => 'completed']);
 
-                return $this->successResponse($data, 'Data pemeriksaan berhasil disimpan', 201);
+                $data->load(['queue.polyclinic', 'queue.patient.user', 'doctor.user']);
+                return $this->successResponse(new ExaminationResource($data), 'Data pemeriksaan berhasil disimpan', 201);
             });
         } catch (\Exception $e) {
             return $this->errorResponse('Gagal menyimpan rekam medis: ' . $e->getMessage(), 500);
@@ -101,29 +97,17 @@ class ExaminationController extends Controller
                 }
             }
             
-            return $this->successResponse($examination, 'Detail rekam medis ditemukan');
+            return $this->successResponse(new ExaminationResource($examination), 'Detail rekam medis ditemukan');
         } catch (Exception $e) {
             return $this->errorResponse('Data rekam medis tidak ditemukan', 404);
         }
     }
 
-    public function update(Request $request, $id) {
+    public function update(UpdateExaminationRequest $request, $id) {
         try {
-            $validator = Validator::make($request->all(), [
-                'queue_id'  => 'sometimes|required|integer|exists:queues,id',
-                'doctor_id' => 'sometimes|required|integer|exists:doctors,id',
-                'complaint' => 'sometimes|required|string',
-                'diagnosis' => 'sometimes|required|string',
-                'treatment' => 'sometimes|required|string'
-            ]);
-
             // BUG-12 Security Fix: Hanya Dokter dan Admin yang bisa mengubah rekam medis
             if ($request->user()->role === 'patient') {
                 return $this->errorResponse('Akses ditolak. Pasien tidak diizinkan mengubah rekam medis.', 403);
-            }
-
-            if ($validator->fails()) {
-                return $this->errorResponse($validator->errors()->first(), 422);
             }
 
             $examination = Examination::findOrFail($id);
@@ -134,8 +118,9 @@ class ExaminationController extends Controller
                 }
             }
 
-            $data = Examination::updateData($id, $validator->validated());
-            return $this->successResponse($data, 'Data rekam medis berhasil diperbarui');
+            $data = Examination::updateData($id, $request->validated());
+            $data->load(['queue.polyclinic', 'queue.patient.user', 'doctor.user']);
+            return $this->successResponse(new ExaminationResource($data), 'Data rekam medis berhasil diperbarui');
         } catch (Exception $e) {
             return $this->errorResponse('Gagal memperbarui, data pemeriksaan tidak ditemukan', 404);
         }
@@ -143,7 +128,6 @@ class ExaminationController extends Controller
 
     public function destroy(Request $request, $id) {
         try {
-            // BUG-12 Security Fix: Hanya Dokter dan Admin yang bisa menghapus rekam medis
             if ($request->user()->role === 'patient') {
                 return $this->errorResponse('Akses ditolak. Pasien tidak diizinkan menghapus rekam medis.', 403);
             }

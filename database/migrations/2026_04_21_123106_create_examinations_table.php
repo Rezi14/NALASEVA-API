@@ -12,8 +12,8 @@ return new class extends Migration {
     {
         Schema::create('examinations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('queue_id')->constrained('queues')->onDelete('cascade');
-            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('cascade');
+            $table->foreignId('queue_id')->constrained('queues')->onDelete('cascade')->index();
+            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('cascade')->index();
             $table->text('complaint');
             $table->text('diagnosis');
             $table->text('treatment');
