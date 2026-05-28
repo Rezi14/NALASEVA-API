@@ -12,8 +12,8 @@ return new class extends Migration {
     {
         Schema::create('doctors', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade')->index();
-            $table->foreignId('polyclinic_id')->constrained('polyclinics')->onDelete('cascade')->index();
+            $table->foreignId('user_id')->index()->constrained('users')->onDelete('cascade');
+            $table->foreignId('polyclinic_id')->index()->constrained('polyclinics')->onDelete('cascade');
             $table->string('specialization');
             $table->string('license_number');
             $table->boolean('is_online')->default(true);
