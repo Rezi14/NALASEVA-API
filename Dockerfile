@@ -46,7 +46,8 @@ RUN printf '%s\n' \
     '}' > /etc/nginx/http.d/default.conf
 
 # Jalankan optimasi internal Laravel & otomatis migrasi saat container menyala
-CMD php artisan config:cache && \
+CMD sed -i "s/listen 80;/listen ${PORT:-80};/g" /etc/nginx/http.d/default.conf && \
+    php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
     php artisan migrate --force && \
