@@ -14,7 +14,7 @@ class KlinikSeeder extends Seeder
         $now = Carbon::now();
         $password = Hash::make('password');
 
-        //  Insert 15 Users
+        //  Insert Admin
         DB::table('users')->insert([
             [
                 'name' => 'Admin Puskesmas', 
