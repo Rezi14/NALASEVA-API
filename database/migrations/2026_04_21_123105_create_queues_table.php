@@ -12,9 +12,9 @@ return new class extends Migration {
     {
         Schema::create('queues', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('patient_id')->constrained('patients')->onDelete('cascade')->index();
-            $table->foreignId('polyclinic_id')->constrained('polyclinics')->onDelete('cascade')->index();
-            $table->foreignId('doctor_id')->constrained('doctors')->onDelete('cascade')->index();
+            $table->foreignId('patient_id')->index()->constrained('patients')->onDelete('cascade');
+            $table->foreignId('polyclinic_id')->index()->constrained('polyclinics')->onDelete('cascade');
+            $table->foreignId('doctor_id')->index()->constrained('doctors')->onDelete('cascade');
             $table->string('queue_number');
             $table->date('date')->index();
             $table->enum('status', ['booked', 'waiting', 'examining', 'completed', 'cancelled'])->default('booked')->index();
