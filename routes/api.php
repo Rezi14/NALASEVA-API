@@ -11,11 +11,13 @@ use App\Http\Controllers\Api\ExaminationController;
 use App\Http\Controllers\Api\DoctorScheduleController;
 use App\Http\Controllers\Api\ClinicHolidayController;
 use App\Http\Controllers\Api\DoctorLeaveController;
+use App\Http\Controllers\Api\PuskesmasProfileController;
 
 // --- Public Routes ---
 Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:auth');
 Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
+Route::get('puskesmas-profile', [PuskesmasProfileController::class, 'show']);
 
 // --- Protected Routes ---
 Route::middleware('auth:sanctum')->group(function () {
@@ -34,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('doctors/me/status', [DoctorController::class, 'updateStatus']);
     Route::post('queues/{id}/checkin', [QueueController::class, 'checkIn']);
     Route::post('queues/{id}/skip', [QueueController::class, 'skip']);
+    Route::put('puskesmas-profile', [PuskesmasProfileController::class, 'update']);
 
     // Rute khusus untuk Restore Data
     Route::post('users/{id}/restore', [UserController::class, 'restore']);
