@@ -14,12 +14,12 @@ class PuskesmasProfileSeeder extends Seeder
     {
         DB::table('puskesmas_profiles')->insert([
             'id' => 1,
-            'name' => 'Puskesmas Sehat Utama',
-            'address' => 'Jl. Raya Sehat No. 12, Jakarta',
+            'name' => 'Puskesmas PBM',
+            'address' => 'Jl. Kalimantan no 30, Jember',
             'phone' => '021-1234567',
-            'email' => 'info@puskesmassehat.go.id',
-            'latitude' => -6.175392,
-            'longitude' => 106.827153,
+            'email' => 'info@puskesmaspbm.go.id',
+            'latitude' => -8.165143,
+            'longitude' => 113.716255,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
