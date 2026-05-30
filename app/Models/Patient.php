@@ -14,7 +14,7 @@ class Patient extends Model
     {
         static::creating(function ($patient) {
             if (empty($patient->medical_record_number)) {
-                $patient->medical_record_number = 'NS-' . date('Ymd') . '-' . sprintf('%04d', rand(1, 9999));
+                $patient->medical_record_number = 'NS-' . date('Ymd') . '-' . date('His') . '-' . sprintf('%03d', rand(0, 999));
             }
         });
     }

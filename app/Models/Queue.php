@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Queue extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['patient_id', 'polyclinic_id', 'doctor_id', 'queue_number', 'date', 'status', 'check_in_time', 'called_time', 'is_priority'];
+    protected $fillable = ['patient_id', 'polyclinic_id', 'doctor_id', 'doctor_schedule_id', 'queue_number', 'date', 'status', 'check_in_time', 'called_time', 'is_priority', 'reason', 'recall_count', 'estimated_service_time'];
     
     // Menambahkan field dinamis ke response JSON
-    protected $appends = ['position_waiting', 'avg_waiting_time', 'estimated_service_time'];
+    protected $appends = ['position_waiting', 'avg_waiting_time'];
 
     public function patient()
     {
@@ -24,6 +24,10 @@ class Queue extends Model
     public function doctor()
     {
         return $this->belongsTo(Doctor::class);
+    }
+    public function doctorSchedule()
+    {
+        return $this->belongsTo(DoctorSchedule::class);
     }
 
     // Accessor untuk menghitung sisa antrean di depan pasien dengan perhitungan prioritas
@@ -39,22 +43,27 @@ class Queue extends Model
             ? ['booked', 'waiting', 'examining']
             : ['waiting', 'examining'];
 
+        $thisTime = $this->check_in_time ?? $this->created_at;
+
         return self::where('polyclinic_id', $this->polyclinic_id)
             ->where('date', $this->date)
             ->whereIn('status', $statuses)
             ->where('id', '!=', $this->id)
-            ->where(function ($query) use ($isPriority) {
+            ->where(function ($query) use ($isPriority, $thisTime) {
                 if ($isPriority) {
                     // Pasien prioritas hanya menunggu sesama prioritas yang datang lebih dulu
-                    $query->where('is_priority', true)
-                          ->where('id', '<', $this->id);
+                    // DAN tetap menunggu siapa pun (reguler maupun prioritas) yang sedang diperiksa (examining)
+                    $query->where(function($q) use ($thisTime) {
+                        $q->where('is_priority', true)
+                          ->where(\Illuminate\Support\Facades\DB::raw('COALESCE(check_in_time, created_at)'), '<', $thisTime);
+                    })->orWhere('status', 'examining');
                 } else {
                     // Pasien reguler menunggu semua pasien prioritas + pasien reguler yang datang lebih dulu
                     $query->where('is_priority', true)
-                          ->orWhere(function ($q) {
+                          ->orWhere(function ($q) use ($thisTime) {
                               $q->where(function($q2) {
                                   $q2->whereNull('is_priority')->orWhere('is_priority', false);
-                              })->where('id', '<', $this->id);
+                                })->where(\Illuminate\Support\Facades\DB::raw('COALESCE(check_in_time, created_at)'), '<', $thisTime);
                           });
                 }
             })
@@ -116,45 +125,71 @@ class Queue extends Model
         return $count > 0 ? (int)round($totalMinutes / $count) : 15;
     }
 
-    public function getEstimatedServiceTimeAttribute()
+    public static function calculateEstimatedServiceTime($queue)
     {
-        if (!in_array($this->status, ['booked', 'waiting'])) {
+        if (!in_array($queue->status, ['booked', 'waiting'])) {
             return null;
         }
 
-        $peopleAhead = $this->position_waiting;
+        $peopleAhead = $queue->position_waiting;
         $fixedMinutes = 15;
 
-        $dayOfWeekEnglish = \Carbon\Carbon::parse($this->date)->format('l');
+        $dayOfWeekEnglish = \Carbon\Carbon::parse($queue->date)->format('l');
         $days = [
             'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa', 
             'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'
         ];
         $dayName = $days[$dayOfWeekEnglish] ?? '';
 
-        $schedule = \App\Models\DoctorSchedule::where('doctor_id', $this->doctor_id)
-            ->where('day_of_week', $dayName)
-            ->first();
+        // Gunakan jadwal spesifik yang terikat pada antrean ini
+        $schedule = null;
+        if ($queue->doctor_schedule_id) {
+            $schedule = \App\Models\DoctorSchedule::find($queue->doctor_schedule_id);
+        }
+        // Fallback ke pencarian berdasarkan hari jika doctor_schedule_id tidak ada
+        if (!$schedule) {
+            $schedule = \App\Models\DoctorSchedule::where('doctor_id', $queue->doctor_id)
+                ->where('day_of_week', $dayName)
+                ->first();
+        }
+
+        if (!$schedule) {
+            return null;
+        }
 
         $baseTime = now();
-        if ($schedule) {
-            $scheduleStart = \Carbon\Carbon::parse($this->date . ' ' . $schedule->start_time);
-            if ($baseTime->lt($scheduleStart)) {
-                $baseTime = $scheduleStart;
-            }
+        $scheduleStart = \Carbon\Carbon::parse($queue->date . ' ' . $schedule->start_time);
+        if ($baseTime->lt($scheduleStart)) {
+            $baseTime = $scheduleStart;
         }
 
         return $baseTime->addMinutes($peopleAhead * $fixedMinutes)->format('H:i');
     }
 
+    public static function recalculateEstimatedTimes(int $polyclinicId, string $date): void
+    {
+        $activeQueues = self::where('polyclinic_id', $polyclinicId)
+            ->where('date', $date)
+            ->whereIn('status', ['booked', 'waiting'])
+            ->orderByRaw('is_priority DESC, COALESCE(check_in_time, created_at) ASC, id ASC')
+            ->get();
+
+        foreach ($activeQueues as $queue) {
+            $newEst = self::calculateEstimatedServiceTime($queue);
+            if ($newEst !== null) {
+                $queue->update(['estimated_service_time' => $newEst]);
+            }
+        }
+    }
+
     public static function getAll()
     {
-        return self::with(['patient.user', 'polyclinic', 'doctor.user'])->get();
+        return self::with(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule'])->get();
     }
 
     public static function getById($id)
     {
-        return self::with(['patient.user', 'polyclinic', 'doctor.user'])->findOrFail($id);
+        return self::with(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule'])->findOrFail($id);
     }
 
     public static function storeData($data)

@@ -14,6 +14,11 @@ class PatientController extends Controller
 {
     use ApiResponse;
 
+    public function __construct()
+    {
+        $this->middleware('role:admin')->only(['store', 'destroy', 'restore']);
+    }
+
     public function index(Request $request) {
         $user = $request->user();
         if ($user->role === 'patient') {
@@ -89,6 +94,11 @@ class PatientController extends Controller
             // Mencegah Celah Keamanan IDOR: Pasien tidak boleh mengubah profil orang lain
             if ($user->role === 'patient' && $patient->user_id !== $user->id) {
                 return $this->errorResponse('Akses ditolak. Anda hanya dapat memperbarui profil Anda sendiri.', 403);
+            }
+
+            // Dokter tidak diizinkan mengubah profil pasien manapun
+            if ($user->role === 'doctor') {
+                return $this->errorResponse('Akses ditolak. Dokter tidak diizinkan untuk mengubah profil pasien.', 403);
             }
 
             $validator = Validator::make($request->all(), [

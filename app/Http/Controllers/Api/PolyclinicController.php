@@ -55,6 +55,17 @@ class PolyclinicController extends Controller
                 return $this->errorResponse($validator->errors()->first(), 422);
             }
 
+            $polyclinic = Polyclinic::findOrFail($id);
+            if ($request->has('code') && $request->code !== $polyclinic->code) {
+                $hasActiveQueues = \App\Models\Queue::where('polyclinic_id', $id)
+                                                    ->whereDate('date', \Carbon\Carbon::today())
+                                                    ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                                    ->exists();
+                if ($hasActiveQueues) {
+                    return $this->errorResponse('Gagal mengubah kode poliklinik. Masih ada antrean aktif pada poliklinik ini untuk hari berjalan.', 422);
+                }
+            }
+
             $data = Polyclinic::updateData($id, $validator->validated());
             return $this->successResponse($data, 'Poliklinik berhasil diperbarui');
         } catch (Exception $e) {
@@ -64,6 +75,23 @@ class PolyclinicController extends Controller
 
     public function destroy($id) {
         try {
+            // Validasi Bisnis: Mencegah penghapusan jika poliklinik masih memiliki antrean aktif
+            $hasActiveQueues = \App\Models\Queue::where('polyclinic_id', $id)
+                                                ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                                ->exists();
+            if ($hasActiveQueues) {
+                return $this->errorResponse('Gagal menghapus poliklinik. Masih ada antrean aktif pada poliklinik ini.', 422);
+            }
+
+            // Cek apakah masih ada jadwal dokter aktif yang terikat ke poliklinik ini
+            $hasActiveSchedules = \App\Models\DoctorSchedule::whereHas('doctor', function($q) use ($id) {
+                                                    $q->where('polyclinic_id', $id);
+                                                })
+                                                ->exists();
+            if ($hasActiveSchedules) {
+                return $this->errorResponse('Gagal menghapus poliklinik. Masih ada jadwal dokter yang terdaftar pada poliklinik ini.', 422);
+            }
+
             Polyclinic::softDeleteData($id);
             return $this->successResponse(null, 'Poliklinik berhasil dihapus');
         } catch (Exception $e) {

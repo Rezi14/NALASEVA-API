@@ -8,7 +8,7 @@ class UpdateExaminationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() && $this->user()->role === 'doctor';
     }
 
     public function rules(): array

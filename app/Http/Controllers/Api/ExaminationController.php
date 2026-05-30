@@ -61,14 +61,33 @@ class ExaminationController extends Controller
     }
 
     public function store(StoreExaminationRequest $request) {
+        $user = $request->user();
+        $doctor = \App\Models\Doctor::where('user_id', $user->id)->first();
+        if (!$doctor) {
+            return $this->errorResponse('Akses ditolak. Anda bukan dokter terdaftar.', 403);
+        }
+
         $queue = Queue::findOrFail($request->queue_id);
         if ($queue->status !== 'examining') {
             return $this->errorResponse('Pasien belum dipanggil / antrean tidak dalam status pemeriksaan', 400);
         }
 
+        // Cegah duplikasi rekam medis untuk antrean yang sama
+        $existingExam = Examination::where('queue_id', $request->queue_id)->exists();
+        if ($existingExam) {
+            return $this->errorResponse('Rekam medis sudah tersedia untuk antrean ini. Tidak dapat membuat duplikat.', 422);
+        }
+
+        if ($queue->doctor_id !== $doctor->id) {
+            return $this->errorResponse('Akses ditolak. Dokter yang login tidak cocok dengan dokter pada tiket antrean.', 403);
+        }
+
         try {
-            return \Illuminate\Support\Facades\DB::transaction(function() use ($request, $queue) {
-                $data = Examination::storeData($request->validated());
+            return \Illuminate\Support\Facades\DB::transaction(function() use ($request, $queue, $doctor) {
+                $validated = $request->validated();
+                $validated['doctor_id'] = $doctor->id; // Paksa menggunakan ID dokter yang sedang login
+
+                $data = Examination::storeData($validated);
 
                 // Update status antrean menjadi 'completed' secara otomatis
                 $queue->update(['status' => 'completed']);
@@ -113,8 +132,8 @@ class ExaminationController extends Controller
             $examination = Examination::findOrFail($id);
             if ($request->user()->role === 'doctor') {
                 $doctor = \App\Models\Doctor::where('user_id', $request->user()->id)->first();
-                if (!$doctor || $examination->queue->polyclinic_id !== $doctor->polyclinic_id) {
-                    return $this->errorResponse('Akses ditolak. Anda tidak diizinkan mengubah rekam medis dari poliklinik lain.', 403);
+                if (!$doctor || $examination->doctor_id !== $doctor->id) {
+                    return $this->errorResponse('Akses ditolak. Anda hanya diizinkan mengubah rekam medis yang Anda buat sendiri.', 403);
                 }
             }
 
@@ -135,8 +154,8 @@ class ExaminationController extends Controller
             $examination = Examination::findOrFail($id);
             if ($request->user()->role === 'doctor') {
                 $doctor = \App\Models\Doctor::where('user_id', $request->user()->id)->first();
-                if (!$doctor || $examination->queue->polyclinic_id !== $doctor->polyclinic_id) {
-                    return $this->errorResponse('Akses ditolak. Anda tidak diizinkan menghapus rekam medis dari poliklinik lain.', 403);
+                if (!$doctor || $examination->doctor_id !== $doctor->id) {
+                    return $this->errorResponse('Akses ditolak. Anda hanya diizinkan menghapus rekam medis yang Anda buat sendiri.', 403);
                 }
             }
 

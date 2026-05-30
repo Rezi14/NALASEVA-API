@@ -21,6 +21,9 @@ return new class extends Migration {
             $table->timestamp('check_in_time')->nullable();
             $table->timestamp('called_time')->nullable();
             $table->boolean('is_priority')->default(false)->comment('Jika true, trigger alert ke dokter');
+            $table->string('reason')->nullable();
+            $table->integer('recall_count')->default(0);
+            $table->time('estimated_service_time')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

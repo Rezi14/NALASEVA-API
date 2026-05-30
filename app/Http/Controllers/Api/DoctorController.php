@@ -17,6 +17,12 @@ class DoctorController extends Controller
 {
     use ApiResponse;
 
+    public function __construct()
+    {
+        $this->middleware('role:admin')->only(['store', 'update', 'destroy', 'restore']);
+        $this->middleware('role:doctor')->only(['myProfile', 'updateStatus']);
+    }
+
     public function index() {
         $doctors = Doctor::with(['user', 'polyclinic'])->get();
         return $this->successResponse(DoctorResource::collection($doctors), 'Daftar dokter berhasil diambil');
@@ -102,6 +108,16 @@ class DoctorController extends Controller
             $doctor = Doctor::findOrFail($id);
             $data = $request->validated();
 
+            // Validasi: Jika polyclinic_id berubah, pastikan dokter tidak memiliki antrean aktif di poliklinik lama
+            if (isset($data['polyclinic_id']) && $data['polyclinic_id'] != $doctor->polyclinic_id) {
+                $hasActiveQueues = \App\Models\Queue::where('doctor_id', $id)
+                                                    ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                                    ->exists();
+                if ($hasActiveQueues) {
+                    return $this->errorResponse('Gagal memperbarui poliklinik dokter. Dokter masih memiliki antrean aktif. Silakan selesaikan atau batalkan antrean terlebih dahulu.', 422);
+                }
+            }
+
             return \DB::transaction(function() use ($data, $doctor) {
                 // Update User fields
                 $userData = collect($data)->only(['name', 'national_id', 'gender', 'birth_date', 'phone', 'address'])->toArray();
@@ -126,6 +142,15 @@ class DoctorController extends Controller
     public function destroy($id) {
         try {
             $doctor = Doctor::findOrFail($id);
+            
+            // Validasi Bisnis: Mencegah penghapusan jika dokter masih memiliki antrean aktif
+            $hasActiveQueues = \App\Models\Queue::where('doctor_id', $id)
+                                                ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                                ->exists();
+            if ($hasActiveQueues) {
+                return $this->errorResponse('Gagal menghapus dokter. Dokter masih memiliki antrean aktif yang belum selesai/terminal.', 422);
+            }
+            
             $userId = $doctor->user_id;
             
             // Hapus dokter sekaligus user login-nya

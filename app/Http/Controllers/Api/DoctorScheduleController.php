@@ -23,7 +23,46 @@ class DoctorScheduleController extends Controller
             });
         }
 
-        return $this->successResponse($query->get(), 'Daftar jadwal dokter berhasil diambil');
+        $schedules = $query->get();
+
+        if ($request->has('date')) {
+            $date = $request->date;
+            $schedules->map(function ($s) use ($date) {
+                $startTime = \Carbon\Carbon::parse($s->start_time);
+                $endTime = \Carbon\Carbon::parse($s->end_time);
+                $duration = $startTime->diffInMinutes($endTime);
+                $scheduleQuota = $duration > 0 ? floor($duration / 15) : 10;
+
+                $activeBookingsOnSchedule = \App\Models\Queue::where('doctor_schedule_id', $s->id)
+                                                           ->where('date', $date)
+                                                           ->whereNotIn('status', ['cancelled'])
+                                                           ->count();
+                $remainingScheduleLimit = max(0, $scheduleQuota - $activeBookingsOnSchedule);
+
+                $s->remaining_daily_quota = $remainingScheduleLimit;
+                return $s;
+            });
+        } else {
+            // Default fallback using today's date if no date parameter is supplied
+            $today = \Carbon\Carbon::today()->toDateString();
+            $schedules->map(function ($s) use ($today) {
+                $startTime = \Carbon\Carbon::parse($s->start_time);
+                $endTime = \Carbon\Carbon::parse($s->end_time);
+                $duration = $startTime->diffInMinutes($endTime);
+                $scheduleQuota = $duration > 0 ? floor($duration / 15) : 10;
+
+                $activeBookingsOnSchedule = \App\Models\Queue::where('doctor_schedule_id', $s->id)
+                                                           ->where('date', $today)
+                                                           ->whereNotIn('status', ['cancelled'])
+                                                           ->count();
+                $remainingScheduleLimit = max(0, $scheduleQuota - $activeBookingsOnSchedule);
+
+                $s->remaining_daily_quota = $remainingScheduleLimit;
+                return $s;
+            });
+        }
+
+        return $this->successResponse($schedules, 'Daftar jadwal dokter berhasil diambil');
     }
 
     public function store(Request $request)
@@ -89,6 +128,16 @@ class DoctorScheduleController extends Controller
             $startTime = $request->start_time ?? $schedule->start_time;
             $endTime = $request->end_time ?? $schedule->end_time;
 
+            // Validasi: Jika hari atau jam jadwal praktik diubah, pastikan tidak ada antrean aktif yang merujuk ke jadwal ini
+            if ($dayOfWeek !== $schedule->day_of_week || $startTime !== $schedule->start_time || $endTime !== $schedule->end_time) {
+                $hasActiveQueues = \App\Models\Queue::where('doctor_schedule_id', $id)
+                                                    ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                                    ->exists();
+                if ($hasActiveQueues) {
+                    return $this->errorResponse('Gagal memperbarui jadwal. Masih ada antrean aktif yang menggunakan jadwal ini. Silakan selesaikan atau batalkan antrean terlebih dahulu.', 422);
+                }
+            }
+
             // Validasi tabrakan jam jika ada update
             $overlapExists = \App\Models\DoctorSchedule::where('doctor_id', $doctorId)
                 ->where('day_of_week', $dayOfWeek)
@@ -113,6 +162,13 @@ class DoctorScheduleController extends Controller
     public function destroy($id)
     {
         try {
+            $hasActiveQueues = \App\Models\Queue::where('doctor_schedule_id', $id)
+                                                ->whereIn('status', ['booked', 'waiting', 'examining'])
+                                                ->exists();
+            if ($hasActiveQueues) {
+                return $this->errorResponse('Gagal menghapus jadwal. Masih ada antrean aktif yang terikat pada jadwal ini.', 422);
+            }
+
             DoctorSchedule::softDeleteData($id);
             return $this->successResponse(null, 'Jadwal berhasil dihapus');
         } catch (Exception $e) {

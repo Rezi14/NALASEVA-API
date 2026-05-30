@@ -8,14 +8,13 @@ class StoreExaminationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() && $this->user()->role === 'doctor';
     }
 
     public function rules(): array
     {
         return [
             'queue_id'  => 'required|integer|exists:queues,id',
-            'doctor_id' => 'required|integer|exists:doctors,id',
             'complaint' => 'required|string',
             'diagnosis' => 'required|string',
             'treatment' => 'required|string',

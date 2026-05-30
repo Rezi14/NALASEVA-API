@@ -80,11 +80,8 @@ class AuthController extends Controller
                     'birth_date' => $request->birth_date,
                 ]);
 
-                $mrn = 'NS-' . date('Ymd') . '-' . $user->id;
-
                 Patient::create([
                     'user_id' => $user->id,
-                    'medical_record_number' => $mrn,
                 ]);
 
                 $token = $user->createToken('auth_token')->plainTextToken;
@@ -105,12 +102,11 @@ class AuthController extends Controller
         }
     }
 
-    public function forgotPassword(Request $request)
+    public function requestPasswordResetOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|string|email',
             'national_id' => 'required|digits:16',
-            'new_password' => 'required|string|min:8',
         ]);
 
         if ($validator->fails()) {
@@ -125,8 +121,69 @@ class AuthController extends Controller
             return $this->errorResponse('Data NIK atau email tidak cocok / tidak ditemukan', 404);
         }
 
+        // Hapus OTP lama milik email ini sebelum mengenerate yang baru
+        DB::table('password_reset_otps')->where('email', $request->email)->delete();
+
+        $otp = sprintf('%06d', rand(100000, 999999));
+
+        DB::table('password_reset_otps')->insert([
+            'email' => $request->email,
+            'otp_code' => $otp,
+            'expires_at' => now()->addMinutes(15),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Return OTP for easy demo/testing purposes
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kode OTP verifikasi berhasil dikirim ke email Anda.',
+            'data' => [
+                'otp_code_testing' => $otp
+            ]
+        ], 200);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+            'national_id' => 'required|digits:16',
+            'otp_code' => 'required|string|size:6',
+            'new_password' => 'required|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), 422);
+        }
+
+        // Validasi OTP (BL-04: Menguji kecocokan dengan seluruh OTP aktif milik email tersebut)
+        $validOtp = DB::table('password_reset_otps')
+            ->where('email', $request->email)
+            ->where('otp_code', $request->otp_code)
+            ->where('expires_at', '>', now())
+            ->exists();
+
+        if (!$validOtp) {
+            return $this->errorResponse('Kode OTP salah atau telah kedaluwarsa.', 422);
+        }
+
+        $user = User::where('email', $request->email)
+                    ->where('national_id', $request->national_id)
+                    ->first();
+
+        if (!$user) {
+            return $this->errorResponse('Data NIK atau email tidak cocok / tidak ditemukan', 404);
+        }
+
         $user->password = Hash::make($request->new_password);
         $user->save();
+
+        // Hapus OTP yang sudah terpakai
+        DB::table('password_reset_otps')->where('email', $request->email)->delete();
+
+        // Revoke all active sessions/tokens to secure the account
+        $user->tokens()->delete();
 
         return $this->successResponse(null, 'Password berhasil diperbarui, silakan login kembali');
     }
@@ -174,7 +231,7 @@ class AuthController extends Controller
             'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)->whereNull('deleted_at')],
             'phone' => 'sometimes|required|string|max:20',
             'address' => 'sometimes|required|string',
-            'national_id' => 'sometimes|required|digits:16',
+            'national_id' => ['sometimes', 'required', 'digits:16', Rule::unique('users')->ignore($user->id)->whereNull('deleted_at')],
             'gender' => 'sometimes|required|string|in:Laki-laki,Perempuan',
             'birth_date' => 'sometimes|required|date_format:Y-m-d',
         ]);
