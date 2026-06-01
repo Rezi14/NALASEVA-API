@@ -4,196 +4,242 @@ Berikut adalah **Entity-Relationship Diagram (ERD)** untuk sistem **NalaSeva** y
 
 ---
 
-## 📊 Diagram ERD (Mermaid)
+### 📊 Kode Schema DBML (dbdiagram.io)
 
-```mermaid
-erDiagram
-    users {
-        bigint id PK
-        string name
-        string email UK
-        string password
-        enum role "admin, doctor, patient, pharmacist"
-        string phone
-        text address
-        string national_id UK
-        enum gender "Laki-laki, Perempuan"
-        date birth_date
-        string fcm_token
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+```dbml
+TableGroup "Master Data" {
+  users
+  patients
+  polyclinics
+  doctors
+  medicines
+}
 
-    patients {
-        bigint id PK
-        bigint user_id FK
-        string medical_record_number UK
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+TableGroup "Doctor Management" {
+  doctor_schedules
+  doctor_leaves
+}
 
-    polyclinics {
-        bigint id PK
-        string code UK
-        string name
-        text description
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+TableGroup "Medical Services" {
+  queues
+  examinations
+  prescription_items
+  payments
+}
 
-    doctors {
-        bigint id PK
-        bigint user_id FK
-        bigint polyclinic_id FK
-        string specialization
-        string license_number UK
-        boolean is_online
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+TableGroup "System Configuration" {
+  clinic_holidays
+  puskesmas_profiles
+  settings
+  password_reset_otps
+}
 
-    doctor_schedules {
-        bigint id PK
-        bigint doctor_id FK
-        enum day_of_week "monday, tuesday, wednesday, thursday, friday, saturday, sunday"
-        time start_time
-        time end_time
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table users {
+  id bigint [pk]
+  name varchar
+  email varchar [unique]
+  password varchar
+  role varchar
+  phone varchar
+  address text
+  national_id varchar [unique]
+  gender varchar
+  birth_date date
+  fcm_token varchar
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    doctor_leaves {
-        bigint id PK
-        bigint doctor_id FK
-        date leave_date
-        string reason
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table patients {
+  id bigint [pk]
+  user_id bigint [unique]
+  medical_record_number varchar [unique]
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    queues {
-        bigint id PK
-        bigint patient_id FK
-        bigint polyclinic_id FK
-        bigint doctor_id FK
-        bigint doctor_schedule_id FK
-        string queue_number "UK: (queue_number, date, polyclinic_id)"
-        date date
-        enum status "booked, waiting, examining, completed, cancelled"
-        timestamp check_in_time
-        timestamp called_time
-        boolean is_priority
-        string reason
-        integer recall_count
-        time estimated_service_time
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table polyclinics {
+  id bigint [pk]
+  code varchar [unique]
+  name varchar
+  description text
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    examinations {
-        bigint id PK
-        bigint queue_id FK
-        bigint doctor_id FK
-        text complaint
-        text diagnosis
-        text treatment
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table doctors {
+  id bigint [pk]
+  user_id bigint [unique]
+  polyclinic_id bigint
+  specialization varchar
+  license_number varchar [unique]
+  is_online boolean
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    medicines {
-        bigint id PK
-        string name UK
-        integer stock
-        string unit
-        decimal price
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table medicines {
+  id bigint [pk]
+  name varchar [unique]
+  stock integer
+  unit varchar
+  price decimal
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    prescription_items {
-        bigint id PK
-        bigint examination_id FK
-        bigint medicine_id FK
-        integer quantity
-        decimal price
-        string instruction
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table doctor_schedules {
+  id bigint [pk]
+  doctor_id bigint
+  day_of_week varchar
+  start_time time
+  end_time time
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    payments {
-        bigint id PK
-        bigint queue_id FK
-        bigint examination_id FK
-        string transaction_number UK
-        decimal registration_fee
-        decimal medicine_fee
-        decimal total_amount
-        string payment_method
-        string payment_proof
-        enum status "pending, waiting_verification, paid, failed"
-        timestamp paid_at
-        timestamp dispensed_at
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table doctor_leaves {
+  id bigint [pk]
+  doctor_id bigint
+  leave_date date
+  reason varchar
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    clinic_holidays {
-        bigint id PK
-        date holiday_date
-        string description
-        timestamps created_at_updated_at
-        soft_deletes deleted_at
-    }
+Table queues {
+  id bigint [pk]
+  patient_id bigint
+  polyclinic_id bigint
+  doctor_id bigint
+  doctor_schedule_id bigint
+  queue_number varchar
+  date date
+  status varchar
+  check_in_time timestamp
+  called_time timestamp
+  is_priority boolean
+  reason varchar
+  recall_count integer
+  estimated_service_time time
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
 
-    puskesmas_profiles {
-        bigint id PK
-        string name
-        text address
-        string phone
-        string email
-        string logo_url
-        decimal latitude
-        decimal longitude
-        timestamps created_at_updated_at
-    }
+  Indexes {
+    (queue_number, date, polyclinic_id) [unique]
+  }
+}
 
-    settings {
-        bigint id PK
-        string key UK
-        text value
-        timestamps created_at_updated_at
-    }
+Table examinations {
+  id bigint [pk]
+  queue_id bigint [unique]
+  doctor_id bigint
+  complaint text
+  diagnosis text
+  treatment text
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    password_reset_otps {
-        bigint id PK
-        string email
-        string otp_code
-        timestamp expires_at
-        timestamps created_at_updated_at
-    }
+Table prescription_items {
+  id bigint [pk]
+  examination_id bigint
+  medicine_id bigint
+  quantity integer
+  price decimal
+  instruction varchar
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    %% Relationships
-    users ||--o| patients : "has one (1:1)"
-    users ||--o| doctors : "has one (1:1)"
-    polyclinics ||--o{ doctors : "has many (1:N)"
-    doctors ||--o{ doctor_schedules : "has many (1:N)"
-    doctors ||--o{ doctor_leaves : "has many (1:N)"
-    
-    patients ||--o{ queues : "has many (1:N)"
-    polyclinics ||--o{ queues : "has many (1:N)"
-    doctors ||--o{ queues : "has many (1:N)"
-    doctor_schedules ||--o{ queues : "has many (1:N)"
+Table payments {
+  id bigint [pk]
+  queue_id bigint
+  examination_id bigint
+  transaction_number varchar [unique]
+  registration_fee decimal
+  medicine_fee decimal
+  total_amount decimal
+  payment_method varchar
+  payment_proof varchar
+  status varchar
+  paid_at timestamp
+  dispensed_at timestamp
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    queues ||--o| examinations : "has one (1:1)"
-    doctors ||--o{ examinations : "has many (1:N)"
-    
-    examinations ||--o{ prescription_items : "has many (1:N)"
-    medicines ||--o{ prescription_items : "has many (1:N)"
+Table clinic_holidays {
+  id bigint [pk]
+  holiday_date date
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
 
-    queues ||--o{ payments : "has many (1:N)"
-    examinations ||--o{ payments : "has many (1:N)"
+Table puskesmas_profiles {
+  id bigint [pk]
+  name varchar
+  address text
+  phone varchar
+  email varchar
+  logo_url varchar
+  latitude decimal
+  longitude decimal
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table settings {
+  id bigint [pk]
+  key varchar [unique]
+  value text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table password_reset_otps {
+  id bigint [pk]
+  email varchar
+  otp_code varchar
+  expires_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Ref: patients.user_id - users.id
+Ref: doctors.user_id - users.id
+
+Ref: doctors.polyclinic_id > polyclinics.id
+
+Ref: doctor_schedules.doctor_id > doctors.id
+Ref: doctor_leaves.doctor_id > doctors.id
+
+Ref: queues.patient_id > patients.id
+Ref: queues.polyclinic_id > polyclinics.id
+Ref: queues.doctor_id > doctors.id
+Ref: queues.doctor_schedule_id > doctor_schedules.id
+
+Ref: examinations.queue_id - queues.id
+Ref: examinations.doctor_id > doctors.id
+
+Ref: prescription_items.examination_id > examinations.id
+Ref: prescription_items.medicine_id > medicines.id
+
+Ref: payments.queue_id > queues.id
+Ref: payments.examination_id > examinations.id
 ```
 
 ---
