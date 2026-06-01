@@ -11,6 +11,7 @@ use App\Models\ClinicHoliday;
 use App\Models\DoctorLeave;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Exception;
 
@@ -273,7 +274,10 @@ class QueueService
                         'status' => 'examining'
                     ]);
                 } catch (\Exception $e) {
-                    // Ignore FCM send errors
+                    Log::error('FCM Queue Notification Error: ' . $e->getMessage(), [
+                        'queue_id' => $id,
+                        'exception' => $e
+                    ]);
                 }
             }
         }

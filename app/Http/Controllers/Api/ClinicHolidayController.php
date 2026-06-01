@@ -49,7 +49,10 @@ class ClinicHolidayController extends Controller
                         'queue_id' => $queue->id
                     ]);
                 } catch (\Exception $e) {
-                    // Ignore FCM send errors
+                    \Illuminate\Support\Facades\Log::error('FCM Holiday Cancellation Notification Error: ' . $e->getMessage(), [
+                        'queue_id' => $queue->id,
+                        'exception' => $e
+                    ]);
                 }
             }
         }

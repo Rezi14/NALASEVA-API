@@ -126,7 +126,10 @@ class PaymentController extends Controller
                             'status' => 'paid'
                         ]);
                     } catch (\Exception $e) {
-                        // ignore FCM errors
+                        \Illuminate\Support\Facades\Log::error('FCM Verify Payment Notification Error: ' . $e->getMessage(), [
+                            'payment_id' => $payment->id,
+                            'exception' => $e
+                        ]);
                     }
                 }
             }
@@ -165,7 +168,10 @@ class PaymentController extends Controller
                         'status' => 'paid'
                     ]);
                 } catch (\Exception $e) {
-                    // ignore FCM errors
+                    \Illuminate\Support\Facades\Log::error('FCM Cash Payment Notification Error: ' . $e->getMessage(), [
+                        'payment_id' => $payment->id,
+                        'exception' => $e
+                    ]);
                 }
             }
 

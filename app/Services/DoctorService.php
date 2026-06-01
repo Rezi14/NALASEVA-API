@@ -9,6 +9,7 @@ use App\Models\DoctorLeave;
 use App\Models\Queue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Exception;
 
@@ -198,7 +199,10 @@ class DoctorService
                             'queue_id' => $queue->id
                         ]);
                     } catch (\Exception $e) {
-                        // Ignore FCM send errors
+                        Log::error('FCM Leave Cancellation Notification Error: ' . $e->getMessage(), [
+                            'queue_id' => $queue->id,
+                            'exception' => $e
+                        ]);
                     }
                 }
             }

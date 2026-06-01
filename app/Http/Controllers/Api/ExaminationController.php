@@ -139,7 +139,10 @@ class ExaminationController extends Controller
                             'status' => 'pending'
                         ]);
                     } catch (\Exception $e) {
-                        // ignore FCM errors
+                        \Illuminate\Support\Facades\Log::error('FCM New Invoice Notification Error: ' . $e->getMessage(), [
+                            'payment_id' => $payment->id,
+                            'exception' => $e
+                        ]);
                     }
                 }
 

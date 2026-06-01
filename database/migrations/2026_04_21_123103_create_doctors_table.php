@@ -15,7 +15,7 @@ return new class extends Migration {
             $table->foreignId('user_id')->index()->constrained('users')->onDelete('cascade');
             $table->foreignId('polyclinic_id')->index()->constrained('polyclinics')->onDelete('cascade');
             $table->string('specialization');
-            $table->string('license_number');
+            $table->string('license_number')->unique();
             $table->boolean('is_online')->default(true);
             $table->timestamps();
             $table->softDeletes();

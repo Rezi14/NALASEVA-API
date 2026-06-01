@@ -20,7 +20,7 @@ return new class extends Migration {
             $table->decimal('total_amount', 10, 2);
             $table->string('payment_method')->default('transfer_bank');
             $table->string('payment_proof')->nullable();
-            $table->enum('status', ['pending', 'waiting_verification', 'paid', 'failed'])->default('pending');
+            $table->enum('status', ['pending', 'waiting_verification', 'paid', 'failed'])->default('pending')->index();
             $table->timestamp('paid_at')->nullable();
             $table->timestamp('dispensed_at')->nullable();
             $table->timestamps();

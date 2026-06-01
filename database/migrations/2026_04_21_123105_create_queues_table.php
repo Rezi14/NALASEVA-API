@@ -31,6 +31,10 @@ return new class extends Migration {
             // Composite indexes for fast polyclinic/doctor daily queue lookups
             $table->index(['polyclinic_id', 'date', 'status'], 'queues_poly_date_status_idx');
             $table->index(['doctor_id', 'date', 'status'], 'queues_doc_date_status_idx');
+            $table->index(['patient_id', 'date'], 'queues_pat_date_idx');
+
+            // Prevent duplicate queue numbers in the same clinic on the same day
+            $table->unique(['queue_number', 'date', 'polyclinic_id'], 'queues_number_date_poly_unique');
         });
     }
 

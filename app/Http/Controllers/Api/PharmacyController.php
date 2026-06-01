@@ -75,7 +75,10 @@ class PharmacyController extends Controller
                             'status' => 'dispensed'
                         ]);
                     } catch (\Exception $e) {
-                        // ignore FCM errors
+                        \Illuminate\Support\Facades\Log::error('FCM Dispense Notification Error: ' . $e->getMessage(), [
+                            'payment_id' => $payment->id,
+                            'exception' => $e
+                        ]);
                     }
                 }
 

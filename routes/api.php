@@ -137,7 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Queues and Examinations index/show (Internal IDOR handled at Controller layer)
     Route::get('queues', [QueueController::class, 'index']);
     Route::get('queues/{id}', [QueueController::class, 'show']);
-    Route::post('queues', [QueueController::class, 'store']); // Booking
+    Route::post('queues', [QueueController::class, 'store'])->middleware('throttle:5,1'); // Booking
     Route::delete('queues/{id}', [QueueController::class, 'destroy']); // Cancellation
     
     Route::get('examinations', [ExaminationController::class, 'index']);
@@ -146,7 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Payments (Shared with ownership checks)
     Route::get('payments', [PaymentController::class, 'index']);
     Route::get('payments/{id}', [PaymentController::class, 'show']);
-    Route::post('payments/{id}/upload-proof', [PaymentController::class, 'uploadProof']);
+    Route::post('payments/{id}/upload-proof', [PaymentController::class, 'uploadProof'])->middleware('throttle:5,1');
 
     // Medicines (Shared read-only)
     Route::get('medicines', [MedicineController::class, 'index']);

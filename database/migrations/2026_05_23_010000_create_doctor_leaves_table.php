@@ -17,6 +17,8 @@ return new class extends Migration {
             $table->string('reason')->nullable();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['doctor_id', 'leave_date'], 'doc_leaves_id_date_idx');
         });
     }
 

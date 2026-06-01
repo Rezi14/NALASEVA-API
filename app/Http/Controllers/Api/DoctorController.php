@@ -72,7 +72,10 @@ class DoctorController extends Controller
                         ]);
                     }
                 } catch (\Exception $e) {
-                    // Ignore FCM send errors
+                    \Illuminate\Support\Facades\Log::error('FCM Doctor Status Notification Error: ' . $e->getMessage(), [
+                        'doctor_id' => $doctor->id,
+                        'exception' => $e
+                    ]);
                 }
             }
         }

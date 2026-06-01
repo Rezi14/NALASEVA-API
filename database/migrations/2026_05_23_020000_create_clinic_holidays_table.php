@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('clinic_holidays', function (Blueprint $table) {
             $table->id();
-            $table->date('holiday_date');
+            $table->date('holiday_date')->index();
             $table->string('description')->nullable();
             $table->timestamps();
             $table->softDeletes();
