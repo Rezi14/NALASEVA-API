@@ -15,7 +15,7 @@ return new class extends Migration {
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
-            $table->enum('role', ['admin', 'doctor', 'patient'])->default('patient');
+            $table->enum('role', ['admin', 'doctor', 'patient', 'pharmacist'])->default('patient');
             $table->string('phone');
             $table->text('address');
             $table->string('national_id')->unique();

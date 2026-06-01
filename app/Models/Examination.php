@@ -10,6 +10,11 @@ class Examination extends Model
     use SoftDeletes;
     protected $fillable = ['queue_id', 'doctor_id', 'complaint', 'diagnosis', 'treatment'];
 
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
+    }
+
     public function queue()
     {
         return $this->belongsTo(Queue::class);

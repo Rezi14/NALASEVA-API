@@ -14,27 +14,31 @@ class DoctorScheduleSeeder extends Seeder
         $doctors = Doctor::with('user')->get();
 
         $scheduleTemplates = [
-            'Dr. Andi Pratama' => [
+            'dr. Andi Pratama' => [
                 ['day_of_week' => 'Senin', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Selasa', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Rabu', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Kamis', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Jumat', 'start_time' => '08:00:00', 'end_time' => '11:00:00'],
             ],
-            'Dr. Siti Aminah' => [
+            'dr. Siti Aminah' => [
                 ['day_of_week' => 'Senin', 'start_time' => '13:00:00', 'end_time' => '16:00:00'],
                 ['day_of_week' => 'Rabu', 'start_time' => '13:00:00', 'end_time' => '16:00:00'],
                 ['day_of_week' => 'Jumat', 'start_time' => '13:00:00', 'end_time' => '16:00:00'],
             ],
-            'Drg. Budi Santoso' => [
+            'drg. Budi Santoso' => [
                 ['day_of_week' => 'Senin', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Rabu', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Kamis', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
             ],
-            'Dr. Rina Wijaya' => [
+            'dr. Rina Wijaya' => [
                 ['day_of_week' => 'Selasa', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Kamis', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
                 ['day_of_week' => 'Sabtu', 'start_time' => '08:00:00', 'end_time' => '11:00:00'],
+            ],
+            'dr. Hendra Kusuma' => [
+                ['day_of_week' => 'Selasa', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
+                ['day_of_week' => 'Kamis', 'start_time' => '08:00:00', 'end_time' => '12:00:00'],
             ],
         ];
 

@@ -10,6 +10,11 @@ class Queue extends Model
     use SoftDeletes;
     protected $fillable = ['patient_id', 'polyclinic_id', 'doctor_id', 'doctor_schedule_id', 'queue_number', 'date', 'status', 'check_in_time', 'called_time', 'is_priority', 'reason', 'recall_count', 'estimated_service_time'];
     
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
+    }
+
     public function patient()
     {
         return $this->belongsTo(Patient::class);
@@ -84,7 +89,7 @@ class Queue extends Model
             ->get();
 
         if ($completedExams->isEmpty()) {
-            return 15; // default fallback 15 menit
+            return (int)\App\Models\Setting::getValue('slot_duration_minutes', 15); // default fallback
         }
 
         $totalMinutes = 0;
@@ -119,7 +124,7 @@ class Queue extends Model
             $count++;
         }
 
-        return $count > 0 ? (int)round($totalMinutes / $count) : 15;
+        return $count > 0 ? (int)round($totalMinutes / $count) : (int)\App\Models\Setting::getValue('slot_duration_minutes', 15);
     }
 
     public static function calculateEstimatedServiceTime($queue)
@@ -129,7 +134,7 @@ class Queue extends Model
         }
 
         $peopleAhead = $queue->position_waiting;
-        $fixedMinutes = 15;
+        $fixedMinutes = (int)\App\Models\Setting::getValue('slot_duration_minutes', 15);
 
         $dayOfWeekEnglish = \Carbon\Carbon::parse($queue->date)->format('l');
         $days = [

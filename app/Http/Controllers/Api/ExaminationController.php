@@ -89,11 +89,62 @@ class ExaminationController extends Controller
 
                 $data = Examination::storeData($validated);
 
+                // Simpan prescription items dan hitung total biaya obat jika ada
+                $medicineFee = 0.00;
+                if ($request->has('prescription_items')) {
+                    foreach ($request->input('prescription_items') as $item) {
+                        $medicine = \App\Models\Medicine::findOrFail($item['medicine_id']);
+                        $price = $medicine->price;
+                        
+                        \App\Models\PrescriptionItem::create([
+                            'examination_id' => $data->id,
+                            'medicine_id' => $item['medicine_id'],
+                            'quantity' => $item['quantity'],
+                            'instruction' => $item['instruction'],
+                            'price' => $price,
+                        ]);
+
+                        $medicineFee += $price * $item['quantity'];
+                    }
+                }
+
                 // Update status antrean menjadi 'completed' secara otomatis
                 $queue->update(['status' => 'completed']);
 
-                $data->load(['queue.polyclinic', 'queue.patient.user', 'doctor.user']);
-                return $this->successResponse(new ExaminationResource($data), 'Data pemeriksaan berhasil disimpan', 201);
+                // Buat tagihan pembayaran otomatis
+                $regFee = (double)\App\Models\Setting::getValue('registration_fee', 10000.00);
+                $totalAmount = $regFee + $medicineFee;
+                $txNumber = 'NS-PAY-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(6));
+
+                $payment = \App\Models\Payment::create([
+                    'queue_id' => $queue->id,
+                    'examination_id' => $data->id,
+                    'transaction_number' => $txNumber,
+                    'registration_fee' => $regFee,
+                    'medicine_fee' => $medicineFee,
+                    'total_amount' => $totalAmount,
+                    'payment_method' => 'transfer_bank',
+                    'status' => 'pending',
+                ]);
+
+                // Kirim notifikasi tagihan baru ke pasien via FCM
+                $patientToken = $queue->patient?->user?->fcm_token ?? null;
+                if ($patientToken) {
+                    try {
+                        $firebaseService = new \App\Services\FirebaseNotificationService();
+                        $title = "Tagihan Baru Diterbitkan";
+                        $body = "Pemeriksaan selesai. Silakan lakukan pembayaran QRIS sebesar Rp" . number_format($totalAmount, 0, ',', '.') . " untuk mengambil obat.";
+                        $firebaseService->sendToToken($patientToken, $title, $body, [
+                            'payment_id' => $payment->id,
+                            'status' => 'pending'
+                        ]);
+                    } catch (\Exception $e) {
+                        // ignore FCM errors
+                    }
+                }
+
+                $data->load(['queue.polyclinic', 'queue.patient.user', 'doctor.user', 'prescriptionItems.medicine']);
+                return $this->successResponse(new ExaminationResource($data), 'Data pemeriksaan dan tagihan pembayaran berhasil disimpan', 201);
             });
         } catch (\Exception $e) {
             return $this->errorResponse('Gagal menyimpan rekam medis: ' . $e->getMessage(), 500);

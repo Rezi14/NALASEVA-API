@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
             DoctorSeeder::class,
             DoctorScheduleSeeder::class,
             MedicineSeeder::class,
+            PharmacistSeeder::class,
+            SettingSeeder::class,
         ]);
     }
 }

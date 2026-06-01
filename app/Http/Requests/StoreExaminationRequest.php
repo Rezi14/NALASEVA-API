@@ -18,6 +18,10 @@ class StoreExaminationRequest extends FormRequest
             'complaint' => 'required|string',
             'diagnosis' => 'required|string',
             'treatment' => 'required|string',
+            'prescription_items' => 'nullable|array',
+            'prescription_items.*.medicine_id' => 'required|integer|exists:medicines,id',
+            'prescription_items.*.quantity' => 'required|integer|min:1',
+            'prescription_items.*.instruction' => 'required|string',
         ];
     }
 }

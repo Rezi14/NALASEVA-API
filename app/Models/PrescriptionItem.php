@@ -9,7 +9,7 @@ class PrescriptionItem extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['examination_id', 'medicine_id', 'quantity', 'instruction'];
+    protected $fillable = ['examination_id', 'medicine_id', 'quantity', 'instruction', 'price'];
 
     public function examination()
     {

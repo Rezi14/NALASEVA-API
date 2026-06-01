@@ -10,14 +10,11 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('medicines', function (Blueprint $table) {
+        Schema::create('settings', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
-            $table->integer('stock')->default(0);
-            $table->string('unit'); // e.g. tablet, syrup, capsule
-            $table->decimal('price', 10, 2)->default(0.00);
+            $table->string('key')->unique();
+            $table->text('value')->nullable();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 
@@ -26,6 +23,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('medicines');
+        Schema::dropIfExists('settings');
     }
 };

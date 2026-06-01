@@ -12,13 +12,12 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         $now = Carbon::now();
-        $password = Hash::make('password');
+        $password = Hash::make('password123');
 
-        //  Insert Admin
-        DB::table('users')->insert([
+        \App\Models\User::updateOrCreate(
+            ['email' => 'admin@admin.com'],
             [
-                'name' => 'Admin Puskesmas', 
-                'email' => 'admin@gmail.com', 
+                'name' => 'Admin Utama Puskesmas', 
                 'password' => $password, 
                 'role' => 'admin', 
                 'phone' => '081234567890',
@@ -26,10 +25,22 @@ class AdminSeeder extends Seeder
                 'national_id' => '1234567890123456',
                 'gender' => 'Laki-laki',
                 'birth_date' => '1990-01-01',
-                'created_at' => $now, 
-                'updated_at' => $now
-            ],
-        ]);
+            ]
+        );
+
+        \App\Models\User::updateOrCreate(
+            ['email' => 'admin2@admin.com'],
+            [
+                'name' => 'Admin Asisten NalaSeva', 
+                'password' => $password, 
+                'role' => 'admin', 
+                'phone' => '081234567891',
+                'address' => 'Jl. Sehat Walafiat No. 2, Puskesmas Admin',
+                'national_id' => '1234567890123457',
+                'gender' => 'Perempuan',
+                'birth_date' => '1993-08-20',
+            ]
+        );
     }
 }
 

@@ -12,6 +12,10 @@ use App\Http\Controllers\Api\DoctorScheduleController;
 use App\Http\Controllers\Api\ClinicHolidayController;
 use App\Http\Controllers\Api\DoctorLeaveController;
 use App\Http\Controllers\Api\PuskesmasProfileController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PharmacyController;
+use App\Http\Controllers\Api\MedicineController;
+use App\Http\Controllers\Api\SettingController;
 
 // --- Public Routes ---
 Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
@@ -64,7 +68,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('doctor-schedules/{id}', [DoctorScheduleController::class, 'destroy']);
         Route::post('doctor-schedules/{id}/restore', [DoctorScheduleController::class, 'restore']);
 
-        Route::get('patients', [PatientController::class, 'index']);
         Route::post('patients', [PatientController::class, 'store']);
         Route::delete('patients/{id}', [PatientController::class, 'destroy']);
         Route::post('patients/{id}/restore', [PatientController::class, 'restore']);
@@ -81,6 +84,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('queues/{id}/restore', [QueueController::class, 'restore']);
         Route::post('examinations/{id}/restore', [ExaminationController::class, 'restore']);
+
+        // Admin Payment Verification
+        Route::post('payments/{id}/verify', [PaymentController::class, 'verify']);
+        Route::post('payments/{id}/cash-pay', [PaymentController::class, 'cashPay']);
+
+        // Admin Settings
+        Route::get('settings', [SettingController::class, 'index']);
+        Route::put('settings', [SettingController::class, 'update']);
     });
 
     // --- Doctor & Admin Authorized Mutators ---
@@ -118,6 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('doctor-leaves', [DoctorLeaveController::class, 'index']);
     Route::get('doctor-leaves/{id}', [DoctorLeaveController::class, 'show']);
 
+    Route::get('patients', [PatientController::class, 'index']);
     Route::get('patients/{id}', [PatientController::class, 'show']);
     Route::put('patients/{id}', [PatientController::class, 'update']);
     Route::patch('patients/{id}', [PatientController::class, 'update']);
@@ -130,4 +142,26 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::get('examinations', [ExaminationController::class, 'index']);
     Route::get('examinations/{id}', [ExaminationController::class, 'show']);
+
+    // Payments (Shared with ownership checks)
+    Route::get('payments', [PaymentController::class, 'index']);
+    Route::get('payments/{id}', [PaymentController::class, 'show']);
+    Route::post('payments/{id}/upload-proof', [PaymentController::class, 'uploadProof']);
+
+    // Medicines (Shared read-only)
+    Route::get('medicines', [MedicineController::class, 'index']);
+    Route::get('medicines/{id}', [MedicineController::class, 'show']);
+
+    // Pharmacy & Medicine Management (Admin & Pharmacist)
+    Route::middleware('role:admin,pharmacist')->group(function () {
+        Route::get('pharmacy/queues', [PharmacyController::class, 'index']);
+        Route::post('pharmacy/queues/{id}/dispense', [PharmacyController::class, 'dispense']);
+        
+        // Medicines CRUD
+        Route::post('medicines', [MedicineController::class, 'store']);
+        Route::put('medicines/{id}', [MedicineController::class, 'update']);
+        Route::patch('medicines/{id}', [MedicineController::class, 'update']);
+        Route::delete('medicines/{id}', [MedicineController::class, 'destroy']);
+        Route::post('medicines/{id}/restore', [MedicineController::class, 'restore']);
+    });
 });

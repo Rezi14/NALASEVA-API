@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->foreignId('examination_id')->index()->constrained('examinations')->onDelete('cascade');
             $table->foreignId('medicine_id')->index()->constrained('medicines')->onDelete('cascade');
             $table->integer('quantity');
+            $table->decimal('price', 10, 2)->default(0.00);
             $table->string('instruction'); // e.g. 3x1 setelah makan
             $table->timestamps();
             $table->softDeletes();

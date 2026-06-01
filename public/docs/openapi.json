@@ -55,9 +55,131 @@
     {
       "name": "Examinations",
       "description": "Manajemen riwayat pemeriksaan / rekam medis medis oleh dokter."
+    },
+    {
+      "name": "Settings",
+      "description": "Endpoint konfigurasi operasional puskesmas (Admin Only)."
     }
   ],
   "paths": {
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Ambil Pengaturan Puskesmas",
+        "description": "Hanya diizinkan untuk Admin. Mengambil seluruh setelan parameter operasional puskesmas terdaftar (Biaya pendaftaran & durasi per slot antrean).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pengaturan puskesmas berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Pengaturan puskesmas berhasil diambil"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "registration_fee": {
+                          "type": "string",
+                          "example": "10000"
+                        },
+                        "slot_duration_minutes": {
+                          "type": "string",
+                          "example": "15"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Perbarui Pengaturan Puskesmas",
+        "description": "Hanya diizinkan untuk Admin. Memperbarui parameter operasional puskesmas (biaya pendaftaran atau durasi per slot antrean).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "registration_fee": {
+                    "type": "number",
+                    "example": 15000,
+                    "description": "Tarif pendaftaran/layanan puskesmas baru"
+                  },
+                  "slot_duration_minutes": {
+                    "type": "integer",
+                    "example": 20,
+                    "description": "Durasi per slot pemeriksaan (menit) baru"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pengaturan puskesmas berhasil diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Pengaturan puskesmas berhasil diperbarui"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "registration_fee": {
+                          "type": "string",
+                          "example": "15000"
+                        },
+                        "slot_duration_minutes": {
+                          "type": "string",
+                          "example": "20"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": [

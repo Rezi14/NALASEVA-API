@@ -9,7 +9,7 @@ class Medicine extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['name', 'stock', 'unit'];
+    protected $fillable = ['name', 'stock', 'unit', 'price'];
 
     public function prescriptionItems()
     {

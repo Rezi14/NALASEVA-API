@@ -20,7 +20,7 @@ class DoctorSeeder extends Seeder
             [
                 'user' => [
                     'name' => 'dr. Andi Pratama',
-                    'email' => 'dr.andi@puskesmas.go.id',
+                    'email' => 'dr.andi@dokter.com',
                     'password' => $password,
                     'role' => 'doctor',
                     'phone' => '081234567801',
@@ -39,7 +39,7 @@ class DoctorSeeder extends Seeder
             [
                 'user' => [
                     'name' => 'dr. Siti Aminah',
-                    'email' => 'dr.siti@puskesmas.go.id',
+                    'email' => 'dr.siti@dokter.com',
                     'password' => $password,
                     'role' => 'doctor',
                     'phone' => '081234567802',
@@ -58,7 +58,7 @@ class DoctorSeeder extends Seeder
             [
                 'user' => [
                     'name' => 'drg. Budi Santoso',
-                    'email' => 'drg.budi@puskesmas.go.id',
+                    'email' => 'drg.budi@dokter.com',
                     'password' => $password,
                     'role' => 'doctor',
                     'phone' => '081234567803',
@@ -77,7 +77,7 @@ class DoctorSeeder extends Seeder
             [
                 'user' => [
                     'name' => 'dr. Rina Wijaya',
-                    'email' => 'dr.rina@puskesmas.go.id',
+                    'email' => 'dr.rina@dokter.com',
                     'password' => $password,
                     'role' => 'doctor',
                     'phone' => '081234567804',
@@ -92,6 +92,25 @@ class DoctorSeeder extends Seeder
                     'is_online' => true,
                 ],
                 'poly_code' => 'POL-ANK',
+            ],
+            [
+                'user' => [
+                    'name' => 'dr. Hendra Kusuma',
+                    'email' => 'dr.hendra@dokter.com',
+                    'password' => $password,
+                    'role' => 'doctor',
+                    'phone' => '081234567805',
+                    'address' => 'Jl. Flamboyan No. 20, Kota Jambi',
+                    'national_id' => '3601020304050005',
+                    'gender' => 'Laki-laki',
+                    'birth_date' => '1978-08-18',
+                ],
+                'doctor' => [
+                    'specialization' => 'Spesialis Geriatri',
+                    'license_number' => 'SIP.202/GERIATRI/2018',
+                    'is_online' => true,
+                ],
+                'poly_code' => 'POL-LNS',
             ],
         ];
 
