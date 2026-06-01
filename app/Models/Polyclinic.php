@@ -10,6 +10,26 @@ class Polyclinic extends Model
     use SoftDeletes;
     protected $fillable = ['code', 'name', 'description'];
 
+    protected static function booted()
+    {
+        static::deleted(function ($polyclinic) {
+            foreach ($polyclinic->doctors as $doctor) {
+                $doctor->delete(); // This triggers Doctor's booted() which deletes schedules!
+            }
+        });
+
+        static::restored(function ($polyclinic) {
+            foreach ($polyclinic->doctors()->onlyTrashed()->get() as $doctor) {
+                $doctor->restore(); // This triggers Doctor's booted() which restores schedules!
+            }
+        });
+    }
+
+    public function doctors()
+    {
+        return $this->hasMany(Doctor::class);
+    }
+
     public static function getAll()
     {
         return self::all();
