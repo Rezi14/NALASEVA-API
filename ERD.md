@@ -4,7 +4,216 @@ Berikut adalah **Entity-Relationship Diagram (ERD)** untuk sistem **NalaSeva** y
 
 ---
 
-### 📊 Kode Schema DBML (dbdiagram.io)
+## 📊 Diagram ERD (Mermaid - Rendered on GitHub)
+
+```mermaid
+erDiagram
+    users {
+        bigint id PK
+        string name
+        string email UK
+        string password
+        string role
+        string phone
+        text address
+        string national_id UK
+        string gender
+        date birth_date
+        string fcm_token
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    patients {
+        bigint id PK
+        bigint user_id UK
+        string medical_record_number UK
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    polyclinics {
+        bigint id PK
+        string code UK
+        string name
+        text description
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    doctors {
+        bigint id PK
+        bigint user_id UK
+        bigint polyclinic_id FK
+        string specialization
+        string license_number UK
+        boolean is_online
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    doctor_schedules {
+        bigint id PK
+        bigint doctor_id FK
+        string day_of_week
+        time start_time
+        time end_time
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    doctor_leaves {
+        bigint id PK
+        bigint doctor_id FK
+        date leave_date
+        string reason
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    queues {
+        bigint id PK
+        bigint patient_id FK
+        bigint polyclinic_id FK
+        bigint doctor_id FK
+        bigint doctor_schedule_id FK
+        string queue_number "UK: (queue_number, date, polyclinic_id)"
+        date date
+        string status
+        timestamp check_in_time
+        timestamp called_time
+        boolean is_priority
+        string reason
+        integer recall_count
+        time estimated_service_time
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    examinations {
+        bigint id PK
+        bigint queue_id UK
+        bigint doctor_id FK
+        text complaint
+        text diagnosis
+        text treatment
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    medicines {
+        bigint id PK
+        string name UK
+        integer stock
+        string unit
+        decimal price
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    prescription_items {
+        bigint id PK
+        bigint examination_id FK
+        bigint medicine_id FK
+        integer quantity
+        decimal price
+        string instruction
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    payments {
+        bigint id PK
+        bigint queue_id FK
+        bigint examination_id FK
+        string transaction_number UK
+        decimal registration_fee
+        decimal medicine_fee
+        decimal total_amount
+        string payment_method
+        string payment_proof
+        string status
+        timestamp paid_at
+        timestamp dispensed_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    clinic_holidays {
+        bigint id PK
+        date holiday_date
+        string description
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    puskesmas_profiles {
+        bigint id PK
+        string name
+        text address
+        string phone
+        string email
+        string logo_url
+        decimal latitude
+        decimal longitude
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    settings {
+        bigint id PK
+        string key UK
+        text value
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    password_reset_otps {
+        bigint id PK
+        string email
+        string otp_code
+        timestamp expires_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    %% Relationships
+    users ||--o| patients : "has one (1:1)"
+    users ||--o| doctors : "has one (1:1)"
+    polyclinics ||--o{ doctors : "has many (1:N)"
+    doctors ||--o{ doctor_schedules : "has many (1:N)"
+    doctors ||--o{ doctor_leaves : "has many (1:N)"
+    
+    patients ||--o{ queues : "has many (1:N)"
+    polyclinics ||--o{ queues : "has many (1:N)"
+    doctors ||--o{ queues : "has many (1:N)"
+    doctor_schedules ||--o{ queues : "has many (1:N)"
+
+    queues ||--o| examinations : "has one (1:1)"
+    doctors ||--o{ examinations : "has many (1:N)"
+    
+    examinations ||--o{ prescription_items : "has many (1:N)"
+    medicines ||--o{ prescription_items : "has many (1:N)"
+
+    queues ||--o{ payments : "has many (1:N)"
+    examinations ||--o{ payments : "has many (1:N)"
+```
+
+---
+
+### 🛠️ Kode Schema DBML (Untuk dbdiagram.io)
 
 ```dbml
 TableGroup "Master Data" {
