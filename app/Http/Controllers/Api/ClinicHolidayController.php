@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ClinicHoliday;
 use App\Traits\ApiResponse;
+use App\Http\Requests\StoreClinicHolidayRequest;
+use App\Http\Requests\UpdateClinicHolidayRequest;
+use App\Http\Resources\ClinicHolidayResource;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Exception;
 
 class ClinicHolidayController extends Controller
 {
@@ -20,21 +23,12 @@ class ClinicHolidayController extends Controller
             $query->where('holiday_date', '>=', now()->toDateString());
         }
         $holidays = $query->orderBy('holiday_date', 'desc')->get();
-        return $this->successResponse($holidays, 'Daftar hari libur berhasil diambil');
+        return $this->successResponse(ClinicHolidayResource::collection($holidays), 'Daftar hari libur berhasil diambil');
     }
 
-    public function store(Request $request)
+    public function store(StoreClinicHolidayRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'holiday_date' => 'required|date|unique:clinic_holidays,holiday_date',
-            'description' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse($validator->errors()->first(), 422);
-        }
-
-        $holiday = ClinicHoliday::create($validator->validated());
+        $holiday = ClinicHoliday::create($request->validated());
 
         $activeQueues = \App\Models\Queue::where('date', $holiday->holiday_date)
             ->whereIn('status', ['booked', 'waiting'])
@@ -60,37 +54,33 @@ class ClinicHolidayController extends Controller
             }
         }
 
-        // Group by polyclinic and recalculate
         $polyDates = $activeQueues->groupBy('polyclinic_id');
         foreach ($polyDates as $polyId => $queues) {
             \App\Models\Queue::recalculateEstimatedTimes($polyId, $holiday->holiday_date);
         }
 
-        return $this->successResponse($holiday, 'Hari libur berhasil ditambahkan dan antrean aktif pada tanggal tersebut telah dibatalkan otomatis.', 201);
+        return $this->successResponse(new ClinicHolidayResource($holiday), 'Hari libur berhasil ditambahkan dan antrean aktif pada tanggal tersebut telah dibatalkan otomatis.', 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateClinicHolidayRequest $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'holiday_date' => 'sometimes|required|date|unique:clinic_holidays,holiday_date,' . $id,
-            'description' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse($validator->errors()->first(), 422);
+        try {
+            $holiday = ClinicHoliday::findOrFail($id);
+            $holiday->update($request->validated());
+            return $this->successResponse(new ClinicHolidayResource($holiday), 'Hari libur berhasil diperbarui');
+        } catch (Exception $e) {
+            return $this->errorResponse('Gagal memperbarui, data hari libur tidak ditemukan', 404);
         }
-
-        $holiday = ClinicHoliday::findOrFail($id);
-        $holiday->update($validator->validated());
-
-        return $this->successResponse($holiday, 'Hari libur berhasil diperbarui');
     }
 
     public function destroy($id)
     {
-        $holiday = ClinicHoliday::findOrFail($id);
-        $holiday->delete();
-
-        return $this->successResponse(null, 'Hari libur berhasil dihapus');
+        try {
+            $holiday = ClinicHoliday::findOrFail($id);
+            $holiday->delete();
+            return $this->successResponse(null, 'Hari libur berhasil dihapus');
+        } catch (Exception $e) {
+            return $this->errorResponse('Gagal menghapus, data hari libur tidak ditemukan', 404);
+        }
     }
 }

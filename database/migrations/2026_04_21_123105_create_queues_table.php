@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->foreignId('patient_id')->index()->constrained('patients')->onDelete('cascade');
             $table->foreignId('polyclinic_id')->index()->constrained('polyclinics')->onDelete('cascade');
             $table->foreignId('doctor_id')->index()->constrained('doctors')->onDelete('cascade');
+            $table->foreignId('doctor_schedule_id')->nullable()->index();
             $table->string('queue_number');
             $table->date('date')->index();
             $table->enum('status', ['booked', 'waiting', 'examining', 'completed', 'cancelled'])->default('booked')->index();

@@ -29,7 +29,7 @@ class QueueResource extends JsonResource
             'patient' => new PatientResource($this->whenLoaded('patient')),
             'polyclinic' => new PolyclinicResource($this->whenLoaded('polyclinic')),
             'doctor' => new DoctorResource($this->whenLoaded('doctor')),
-            'doctor_schedule' => $this->doctorSchedule,
+            'doctor_schedule' => new DoctorScheduleResource($this->whenLoaded('doctorSchedule')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

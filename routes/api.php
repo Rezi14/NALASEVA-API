@@ -26,7 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth actions (All Roles)
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/profile', [AuthController::class, 'profile']);
-    Route::post('auth/update-profile', [AuthController::class, 'updateProfile']);
+    Route::match(['post', 'put', 'patch'], 'auth/update-profile', [AuthController::class, 'updateProfile']);
     Route::post('auth/fcm-token', [AuthController::class, 'updateFcmToken']);
 
     // Dashboard Stats

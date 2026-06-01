@@ -10,9 +10,6 @@ class Queue extends Model
     use SoftDeletes;
     protected $fillable = ['patient_id', 'polyclinic_id', 'doctor_id', 'doctor_schedule_id', 'queue_number', 'date', 'status', 'check_in_time', 'called_time', 'is_priority', 'reason', 'recall_count', 'estimated_service_time'];
     
-    // Menambahkan field dinamis ke response JSON
-    protected $appends = ['position_waiting', 'avg_waiting_time'];
-
     public function patient()
     {
         return $this->belongsTo(Patient::class);
@@ -180,38 +177,5 @@ class Queue extends Model
                 $queue->update(['estimated_service_time' => $newEst]);
             }
         }
-    }
-
-    public static function getAll()
-    {
-        return self::with(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule'])->get();
-    }
-
-    public static function getById($id)
-    {
-        return self::with(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule'])->findOrFail($id);
-    }
-
-    public static function storeData($data)
-    {
-        return self::create($data);
-    }
-
-    public static function updateData($id, $data)
-    {
-        $queue = self::findOrFail($id);
-        $queue->update($data);
-        return $queue;
-    }
-
-    public static function softDeleteData($id)
-    {
-        return self::findOrFail($id)->delete();
-    }
-
-    public static function restoreData($id)
-    {
-        $queue = self::onlyTrashed()->findOrFail($id);
-        return $queue->restore();
     }
 }

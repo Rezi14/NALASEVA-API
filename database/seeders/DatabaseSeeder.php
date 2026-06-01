@@ -18,6 +18,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AdminSeeder::class,
             PuskesmasProfileSeeder::class,
+            PolyclinicSeeder::class,
+            DoctorSeeder::class,
+            DoctorScheduleSeeder::class,
+            MedicineSeeder::class,
         ]);
     }
 }

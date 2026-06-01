@@ -3,18 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
-use App\Models\Patient;
+use App\Services\AuthService;
 use App\Traits\ApiResponse;
+use App\Http\Resources\UserResource;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Exception;
 
 class AuthController extends Controller
 {
     use ApiResponse;
+
+    protected AuthService $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
 
     public function login(Request $request)
     {
@@ -27,26 +33,20 @@ class AuthController extends Controller
             return $this->errorResponse($validator->errors()->first(), 422);
         }
 
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return $this->errorResponse('Email atau password salah', 401);
+        try {
+            $data = $this->authService->login($validator->validated());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Login berhasil',
+                'data' => [
+                    'user' => new UserResource($data['user']),
+                    'access_token' => $data['access_token'],
+                    'token_type' => $data['token_type'],
+                ]
+            ]);
+        } catch (Exception $e) {
+            return $this->errorResponse($e->getMessage(), 401);
         }
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        // Load relations
-        $user->load(['patient', 'doctor']);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Login berhasil',
-            'data' => [
-                'user' => $user,
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ]
-        ]);
     }
 
     public function register(Request $request)
@@ -67,37 +67,17 @@ class AuthController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($request) {
-                $user = User::create([
-                    'name' => $request->name,
-                    'email' => $request->email,
-                    'password' => Hash::make($request->password),
-                    'role' => 'patient',
-                    'phone' => $request->phone_number,
-                    'address' => $request->address,
-                    'national_id' => $request->national_id,
-                    'gender' => $request->gender,
-                    'birth_date' => $request->birth_date,
-                ]);
-
-                Patient::create([
-                    'user_id' => $user->id,
-                ]);
-
-                $token = $user->createToken('auth_token')->plainTextToken;
-                $user->load('patient');
-
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Registrasi berhasil',
-                    'data' => [
-                        'user' => $user,
-                        'access_token' => $token,
-                        'token_type' => 'Bearer',
-                    ]
-                ], 201);
-            });
-        } catch (\Exception $e) {
+            $data = $this->authService->register($validator->validated());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Registrasi berhasil',
+                'data' => [
+                    'user' => new UserResource($data['user']),
+                    'access_token' => $data['access_token'],
+                    'token_type' => $data['token_type'],
+                ]
+            ], 201);
+        } catch (Exception $e) {
             return $this->errorResponse('Terjadi kesalahan saat registrasi: ' . $e->getMessage(), 500);
         }
     }
@@ -113,35 +93,25 @@ class AuthController extends Controller
             return $this->errorResponse($validator->errors()->first(), 422);
         }
 
-        $user = User::where('email', $request->email)
-                    ->where('national_id', $request->national_id)
-                    ->first();
-
-        if (!$user) {
-            return $this->errorResponse('Data NIK atau email tidak cocok / tidak ditemukan', 404);
+        try {
+            $otp = $this->authService->requestPasswordResetOtp($validator->validated());
+            $responseData = [
+                'status' => 'success',
+                'message' => 'Kode OTP verifikasi berhasil dikirim ke email Anda.',
+            ];
+            
+            // Only expose OTP code to response if NOT in production to prevent security bypass
+            if (config('app.env') !== 'production') {
+                $responseData['data'] = [
+                    'otp_code_testing' => $otp
+                ];
+            }
+            
+            return response()->json($responseData, 200);
+        } catch (Exception $e) {
+            $statusCode = $e->getCode() === 404 ? 404 : 500;
+            return $this->errorResponse($e->getMessage(), $statusCode);
         }
-
-        // Hapus OTP lama milik email ini sebelum mengenerate yang baru
-        DB::table('password_reset_otps')->where('email', $request->email)->delete();
-
-        $otp = sprintf('%06d', rand(100000, 999999));
-
-        DB::table('password_reset_otps')->insert([
-            'email' => $request->email,
-            'otp_code' => $otp,
-            'expires_at' => now()->addMinutes(15),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Return OTP for easy demo/testing purposes
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Kode OTP verifikasi berhasil dikirim ke email Anda.',
-            'data' => [
-                'otp_code_testing' => $otp
-            ]
-        ], 200);
     }
 
     public function forgotPassword(Request $request)
@@ -157,41 +127,18 @@ class AuthController extends Controller
             return $this->errorResponse($validator->errors()->first(), 422);
         }
 
-        // Validasi OTP (BL-04: Menguji kecocokan dengan seluruh OTP aktif milik email tersebut)
-        $validOtp = DB::table('password_reset_otps')
-            ->where('email', $request->email)
-            ->where('otp_code', $request->otp_code)
-            ->where('expires_at', '>', now())
-            ->exists();
-
-        if (!$validOtp) {
-            return $this->errorResponse('Kode OTP salah atau telah kedaluwarsa.', 422);
+        try {
+            $this->authService->forgotPassword($validator->validated());
+            return $this->successResponse(null, 'Password berhasil diperbarui, silakan login kembali');
+        } catch (Exception $e) {
+            $statusCode = in_array($e->getCode(), [404, 422]) ? $e->getCode() : 500;
+            return $this->errorResponse($e->getMessage(), $statusCode);
         }
-
-        $user = User::where('email', $request->email)
-                    ->where('national_id', $request->national_id)
-                    ->first();
-
-        if (!$user) {
-            return $this->errorResponse('Data NIK atau email tidak cocok / tidak ditemukan', 404);
-        }
-
-        $user->password = Hash::make($request->new_password);
-        $user->save();
-
-        // Hapus OTP yang sudah terpakai
-        DB::table('password_reset_otps')->where('email', $request->email)->delete();
-
-        // Revoke all active sessions/tokens to secure the account
-        $user->tokens()->delete();
-
-        return $this->successResponse(null, 'Password berhasil diperbarui, silakan login kembali');
     }
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-
+        $this->authService->logout($request->user());
         return $this->successResponse(null, 'Logout berhasil');
     }
 
@@ -205,8 +152,7 @@ class AuthController extends Controller
             return $this->errorResponse($validator->errors()->first(), 422);
         }
 
-        User::updateData($request->user()->id, ['fcm_token' => $request->fcm_token]);
-
+        $this->authService->updateFcmToken($request->user(), $request->fcm_token);
         return $this->successResponse(null, 'FCM Token berhasil diperbarui');
     }
 
@@ -214,11 +160,10 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $user->load(['patient', 'doctor']);
-
         return response()->json([
             'status' => 'success',
             'message' => 'Profil berhasil diambil',
-            'data' => $user
+            'data' => new UserResource($user)
         ]);
     }
 
@@ -241,26 +186,13 @@ class AuthController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($request, $user) {
-                // Update User fields
-                $userData = $request->only(['name', 'email', 'phone', 'address', 'gender', 'birth_date']);
-
-                // Allow updating national_id only if it is currently null/empty
-                if ($request->has('national_id') && empty($user->national_id)) {
-                    $userData['national_id'] = $request->national_id;
-                }
-
-                $user->update($userData);
-
-                $user->load(['patient', 'doctor']);
-
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Profil berhasil diperbarui',
-                    'data' => $user
-                ]);
-            });
-        } catch (\Exception $e) {
+            $updatedUser = $this->authService->updateProfile($user, $validator->validated());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Profil berhasil diperbarui',
+                'data' => new UserResource($updatedUser)
+            ]);
+        } catch (Exception $e) {
             return $this->errorResponse('Terjadi kesalahan saat memperbarui profil: ' . $e->getMessage(), 500);
         }
     }

@@ -18,15 +18,19 @@ class Examination extends Model
     {
         return $this->belongsTo(Doctor::class);
     }
+    public function prescriptionItems()
+    {
+        return $this->hasMany(PrescriptionItem::class);
+    }
 
     public static function getAll()
     {
-        return self::with(['queue', 'doctor'])->get();
+        return self::with(['queue', 'doctor', 'prescriptionItems.medicine'])->get();
     }
 
     public static function getById($id)
     {
-        return self::with(['queue.patient', 'queue.polyclinic', 'doctor.user'])->findOrFail($id);
+        return self::with(['queue.patient', 'queue.polyclinic', 'doctor.user', 'prescriptionItems.medicine'])->findOrFail($id);
     }
 
     public static function storeData($data)
