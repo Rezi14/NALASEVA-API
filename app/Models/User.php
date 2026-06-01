@@ -24,4 +24,43 @@ class User extends Authenticatable
     {
         return $this->hasOne(Doctor::class);
     }
+
+    public static function getAll()
+    {
+        return self::all();
+    }
+
+    public static function getById($id)
+    {
+        return self::findOrFail($id);
+    }
+
+    public static function storeData($data)
+    {
+        if (isset($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        }
+        return self::create($data);
+    }
+
+    public static function updateData($id, $data)
+    {
+        $user = self::findOrFail($id);
+        if (isset($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        }
+        $user->update($data);
+        return $user;
+    }
+
+    public static function softDeleteData($id)
+    {
+        return self::findOrFail($id)->delete();
+    }
+
+    public static function restoreData($id)
+    {
+        $user = self::onlyTrashed()->findOrFail($id);
+        return $user->restore();
+    }
 }
