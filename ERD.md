@@ -55,7 +55,7 @@ erDiagram
     doctor_schedules {
         bigint id PK
         bigint doctor_id FK
-        enum day_of_week "Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu"
+        enum day_of_week "monday, tuesday, wednesday, thursday, friday, saturday, sunday"
         time start_time
         time end_time
         timestamps created_at_updated_at
@@ -204,9 +204,9 @@ erDiagram
    - **Perubahan:** Dari sebelumnya digambarkan sebagai One-to-One (`1:1`), kini dirancang sebagai **One-to-Many (`1:N`)**.
    - **Alasan:** Memungkinkan skenario di mana satu pemeriksaan/kunjungan memiliki lebih dari satu transaksi pembayaran (misal: pembayaran pendaftaran awal dibayar terpisah dengan biaya penebusan resep obat).
 
-2. **`doctor_schedules.day_of_week` (Menggunakan Enum)**
-   - **Perubahan:** Kolom ini direkomendasikan bertipe `enum('Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu')`.
-   - **Alasan:** Menjamin validitas data hari agar selalu seragam secara konsisten di tingkat database.
+2. **`doctor_schedules.day_of_week` (Menggunakan Enum Bahasa Inggris)**
+   - **Perubahan:** Kolom ini di tingkat database bertipe `enum('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')`.
+   - **Karakteristik:** Menggunakan standar bahasa Inggris di level database untuk kompabilitas datetime, dan secara otomatis dikonversi ke bahasa Indonesia (`Senin` - `Minggu`) oleh model Eloquent Laravel (`DoctorSchedule.php`) saat disajikan ke aplikasi.
 
 3. **`doctors.license_number` (Unique / `UK`)**
    - **Perubahan:** Kolom nomor izin praktik (**SIP**) dokter didefinisikan sebagai indeks unik.

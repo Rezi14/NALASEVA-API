@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('doctor_schedules', function (Blueprint $table) {
             $table->id();
             $table->foreignId('doctor_id')->index()->constrained('doctors')->onDelete('cascade');
-            $table->enum('day_of_week', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
+            $table->enum('day_of_week', ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
             $table->time('start_time');
             $table->time('end_time');
             $table->timestamps();
