@@ -23,7 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
                     'status' => 'error',
                     'message' => $e->getMessage() ?: 'Terjadi kesalahan sistem',
                     'data' => null
-                ], method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500);
+                ], method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Requested-With, X-CSRF-TOKEN');
             }
         });
     })->create();
