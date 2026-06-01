@@ -53,8 +53,24 @@ class UserController extends Controller
     }
 
     public function destroy(Request $request, $id) {
-        // Admin cannot delete users anymore based on new policy
-        return $this->errorResponse('Akses ditolak. Kebijakan baru melarang penghapusan user oleh Admin.', 403);
+        try {
+            // Mencegah admin menghapus dirinya sendiri
+            if ($request->user()->id == $id) {
+                return $this->errorResponse('Akses ditolak. Anda tidak diperkenankan menghapus akun Anda sendiri.', 403);
+            }
+
+            $targetUser = User::findOrFail($id);
+
+            // Mencegah admin menghapus akun admin lain
+            if ($targetUser->role === 'admin') {
+                return $this->errorResponse('Akses ditolak. Anda tidak diperkenankan menghapus akun administrator lain.', 403);
+            }
+
+            $targetUser->delete(); // This triggers soft delete and the booted() cascade events
+            return $this->successResponse(null, 'User berhasil dihapus');
+        } catch (Exception $e) {
+            return $this->errorResponse('Gagal menghapus, data user tidak ditemukan', 404);
+        }
     }
 
     public function restore($id) {
