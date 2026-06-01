@@ -14,11 +14,6 @@ class PatientController extends Controller
 {
     use ApiResponse;
 
-    public function __construct()
-    {
-        $this->middleware('role:admin')->only(['store', 'destroy', 'restore']);
-    }
-
     public function index(Request $request) {
         $user = $request->user();
         if ($user->role === 'patient') {

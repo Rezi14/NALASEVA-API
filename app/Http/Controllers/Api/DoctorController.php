@@ -23,8 +23,6 @@ class DoctorController extends Controller
     public function __construct(DoctorService $doctorService)
     {
         $this->doctorService = $doctorService;
-        $this->middleware('role:admin')->only(['store', 'update', 'destroy', 'restore']);
-        $this->middleware('role:doctor')->only(['myProfile', 'updateStatus']);
     }
 
     public function index()
