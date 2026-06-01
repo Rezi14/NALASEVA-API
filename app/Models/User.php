@@ -15,6 +15,19 @@ class User extends Authenticatable
     protected $fillable = ['name', 'email', 'password', 'role', 'phone', 'address', 'fcm_token', 'national_id', 'gender', 'birth_date'];
     protected $hidden = ['password'];
 
+    protected static function booted()
+    {
+        static::deleted(function ($user) {
+            $user->patient()->delete();
+            $user->doctor()->delete();
+        });
+
+        static::restored(function ($user) {
+            $user->patient()->restore();
+            $user->doctor()->restore();
+        });
+    }
+
     public function patient()
     {
         return $this->hasOne(Patient::class);
