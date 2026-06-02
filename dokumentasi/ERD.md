@@ -7,6 +7,122 @@ Berikut adalah **Entity-Relationship Diagram (ERD)** untuk sistem **NalaSeva** y
 ## 📊 Diagram ERD (Mermaid - Rendered on GitHub)
 
 ```mermaid
+%%{
+  init: {
+    'theme': 'base',
+    'themeCSS': '
+      /* Gaya Global untuk ER Diagram */
+      .er.entityBox {
+        stroke-width: 2px !important;
+      }
+      .er.attributeBoxEven {
+        stroke: #cbd5e1 !important;
+        stroke-width: 1px !important;
+      }
+      .er.attributeBoxOdd {
+        stroke: #cbd5e1 !important;
+        stroke-width: 1px !important;
+      }
+      .er.relationshipLine {
+        stroke: #64748b !important;
+        stroke-width: 1.5px !important;
+      }
+      .er.relationshipLabel {
+        fill: #334155 !important;
+        font-size: 11px !important;
+        font-family: "Inter", sans-serif !important;
+      }
+      .er.relationshipLabelBox {
+        fill: #ffffff !important;
+        stroke: #cbd5e1 !important;
+        stroke-width: 1px !important;
+      }
+      .er.entityLabel {
+        font-family: "Inter", sans-serif !important;
+        font-weight: bold !important;
+      }
+      
+      /* Grup 1: Master Data - Soft Purple (#f3e8ff, #7c4dff, text: #6b21a8) */
+      [id^=entity-users] .er.entityBox { fill: #f3e8ff !important; stroke: #7c4dff !important; }
+      [id^=entity-users] .er.attributeBoxEven { fill: #faf5ff !important; }
+      [id^=entity-users] .er.attributeBoxOdd { fill: #f3e8ff !important; }
+      [id^=entity-users] text { fill: #6b21a8 !important; }
+
+      [id^=entity-patients] .er.entityBox { fill: #f3e8ff !important; stroke: #7c4dff !important; }
+      [id^=entity-patients] .er.attributeBoxEven { fill: #faf5ff !important; }
+      [id^=entity-patients] .er.attributeBoxOdd { fill: #f3e8ff !important; }
+      [id^=entity-patients] text { fill: #6b21a8 !important; }
+
+      [id^=entity-polyclinics] .er.entityBox { fill: #f3e8ff !important; stroke: #7c4dff !important; }
+      [id^=entity-polyclinics] .er.attributeBoxEven { fill: #faf5ff !important; }
+      [id^=entity-polyclinics] .er.attributeBoxOdd { fill: #f3e8ff !important; }
+      [id^=entity-polyclinics] text { fill: #6b21a8 !important; }
+
+      [id^=entity-doctors] .er.entityBox { fill: #f3e8ff !important; stroke: #7c4dff !important; }
+      [id^=entity-doctors] .er.attributeBoxEven { fill: #faf5ff !important; }
+      [id^=entity-doctors] .er.attributeBoxOdd { fill: #f3e8ff !important; }
+      [id^=entity-doctors] text { fill: #6b21a8 !important; }
+
+      [id^=entity-medicines] .er.entityBox { fill: #f3e8ff !important; stroke: #7c4dff !important; }
+      [id^=entity-medicines] .er.attributeBoxEven { fill: #faf5ff !important; }
+      [id^=entity-medicines] .er.attributeBoxOdd { fill: #f3e8ff !important; }
+      [id^=entity-medicines] text { fill: #6b21a8 !important; }
+
+      /* Grup 2: Doctor Management - Soft Blue (#e0f2fe, #0284c7, text: #0369a1) */
+      [id^=entity-doctor_schedules] .er.entityBox { fill: #e0f2fe !important; stroke: #0284c7 !important; }
+      [id^=entity-doctor_schedules] .er.attributeBoxEven { fill: #f0f9ff !important; }
+      [id^=entity-doctor_schedules] .er.attributeBoxOdd { fill: #e0f2fe !important; }
+      [id^=entity-doctor_schedules] text { fill: #0369a1 !important; }
+
+      [id^=entity-doctor_leaves] .er.entityBox { fill: #e0f2fe !important; stroke: #0284c7 !important; }
+      [id^=entity-doctor_leaves] .er.attributeBoxEven { fill: #f0f9ff !important; }
+      [id^=entity-doctor_leaves] .er.attributeBoxOdd { fill: #e0f2fe !important; }
+      [id^=entity-doctor_leaves] text { fill: #0369a1 !important; }
+
+      /* Grup 3: Medical Services - Soft Green (#dcfce7, #16a34a, text: #14532d) */
+      [id^=entity-queues] .er.entityBox { fill: #dcfce7 !important; stroke: #16a34a !important; }
+      [id^=entity-queues] .er.attributeBoxEven { fill: #f0fdf4 !important; }
+      [id^=entity-queues] .er.attributeBoxOdd { fill: #dcfce7 !important; }
+      [id^=entity-queues] text { fill: #14532d !important; }
+
+      [id^=entity-examinations] .er.entityBox { fill: #dcfce7 !important; stroke: #16a34a !important; }
+      [id^=entity-examinations] .er.attributeBoxEven { fill: #f0fdf4 !important; }
+      [id^=entity-examinations] .er.attributeBoxOdd { fill: #dcfce7 !important; }
+      [id^=entity-examinations] text { fill: #14532d !important; }
+
+      [id^=entity-prescription_items] .er.entityBox { fill: #dcfce7 !important; stroke: #16a34a !important; }
+      [id^=entity-prescription_items] .er.attributeBoxEven { fill: #f0fdf4 !important; }
+      [id^=entity-prescription_items] .er.attributeBoxOdd { fill: #dcfce7 !important; }
+      [id^=entity-prescription_items] text { fill: #14532d !important; }
+
+      [id^=entity-payments] .er.entityBox { fill: #dcfce7 !important; stroke: #16a34a !important; }
+      [id^=entity-payments] .er.attributeBoxEven { fill: #f0fdf4 !important; }
+      [id^=entity-payments] .er.attributeBoxOdd { fill: #dcfce7 !important; }
+      [id^=entity-payments] text { fill: #14532d !important; }
+
+      /* Grup 4: System Configuration - Soft Slate (#e2e8f0, #64748b, text: #334155) */
+      [id^=entity-clinic_holidays] .er.entityBox { fill: #e2e8f0 !important; stroke: #64748b !important; }
+      [id^=entity-clinic_holidays] .er.attributeBoxEven { fill: #f8fafc !important; }
+      [id^=entity-clinic_holidays] .er.attributeBoxOdd { fill: #e2e8f0 !important; }
+      [id^=entity-clinic_holidays] text { fill: #334155 !important; }
+
+      [id^=entity-puskesmas_profiles] .er.entityBox { fill: #e2e8f0 !important; stroke: #64748b !important; }
+      [id^=entity-puskesmas_profiles] .er.attributeBoxEven { fill: #f8fafc !important; }
+      [id^=entity-puskesmas_profiles] .er.attributeBoxOdd { fill: #e2e8f0 !important; }
+      [id^=entity-puskesmas_profiles] text { fill: #334155 !important; }
+
+      [id^=entity-settings] .er.entityBox { fill: #e2e8f0 !important; stroke: #64748b !important; }
+      [id^=entity-settings] .er.attributeBoxEven { fill: #f8fafc !important; }
+      [id^=entity-settings] .er.attributeBoxOdd { fill: #e2e8f0 !important; }
+      [id^=entity-settings] text { fill: #334155 !important; }
+
+      [id^=entity-password_reset_otps] .er.entityBox { fill: #e2e8f0 !important; stroke: #64748b !important; }
+      [id^=entity-password_reset_otps] .er.attributeBoxEven { fill: #f8fafc !important; }
+      [id^=entity-password_reset_otps] .er.attributeBoxOdd { fill: #e2e8f0 !important; }
+      [id^=entity-password_reset_otps] text { fill: #334155 !important; }
+    '
+  }
+}%%
 erDiagram
     users {
         bigint id PK

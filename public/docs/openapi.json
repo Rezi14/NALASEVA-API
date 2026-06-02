@@ -29,6 +29,10 @@
       "description": "Endpoint statistik ringkasan dashboard untuk Admin."
     },
     {
+      "name": "Puskesmas Profile",
+      "description": "Manajemen data profil dan koordinasi lokasi puskesmas."
+    },
+    {
       "name": "Polyclinics",
       "description": "Manajemen data poliklinik (CRUD & Soft Delete/Restore)."
     },
@@ -57,11 +61,148 @@
       "description": "Manajemen riwayat pemeriksaan / rekam medis medis oleh dokter."
     },
     {
+      "name": "Payments",
+      "description": "Manajemen biaya pendaftaran, obat-obatan, bukti transfer, dan verifikasi kasir."
+    },
+    {
+      "name": "Pharmacy & Medicines",
+      "description": "Pelayanan penyerahan resep obat di apotek & inventaris obat."
+    },
+    {
       "name": "Settings",
       "description": "Endpoint konfigurasi operasional puskesmas (Admin Only)."
     }
   ],
   "paths": {
+    "/api/puskesmas-profile": {
+      "get": {
+        "tags": [
+          "Puskesmas Profile"
+        ],
+        "summary": "Ambil Profil Puskesmas",
+        "description": "Mengambil detail profil Puskesmas (nama, alamat, kontak, koordinat geografis).",
+        "responses": {
+          "200": {
+            "description": "Profil Puskesmas berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Detail profil Puskesmas berhasil diambil"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PuskesmasProfile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Puskesmas Profile"
+        ],
+        "summary": "Perbarui Profil Puskesmas",
+        "description": "Hanya diizinkan untuk Admin. Memperbarui informasi profil dan lokasi koordinat Puskesmas.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "address",
+                  "phone",
+                  "email"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Puskesmas Nalaseva"
+                  },
+                  "address": {
+                    "type": "string",
+                    "example": "Jl. Raya Jember No. 45, Sumbersari, Jember"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "0331-123456"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "info@puskesmas-nalaseva.go.id"
+                  },
+                  "logo_url": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/clinic.png"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "example": -8.165143,
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "example": 113.716255,
+                    "minimum": -180,
+                    "maximum": 180
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profil Puskesmas berhasil diperbarui",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Profil Puskesmas berhasil diperbarui"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PuskesmasProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validasi input gagal"
+          },
+          "403": {
+            "description": "Akses ditolak (Bukan Admin)"
+          }
+        }
+      }
+    },
     "/api/settings": {
       "get": {
         "tags": [
@@ -406,13 +547,85 @@
         }
       }
     },
+    "/api/auth/forgot-password/otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Minta OTP Reset Password",
+        "description": "Mengirimkan kode OTP 6 digit ke email pengguna jika email dan NIK cocok.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "national_id"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "rezi@example.com"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "3201021234567890"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP berhasil dikirim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Kode OTP verifikasi berhasil dikirim ke email Anda."
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "otp_code_testing": {
+                          "type": "string",
+                          "example": "123456",
+                          "description": "Hanya muncul di environment non-production untuk testing."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Data NIK atau email tidak cocok / tidak ditemukan"
+          },
+          "422": {
+            "description": "Validasi input gagal"
+          }
+        }
+      }
+    },
     "/api/auth/forgot-password": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Lupa Password (Reset via Verifikasi NIK)",
-        "description": "Mereset password akun pasien dengan memverifikasi kecocokan Email dan NIK (National ID).",
+        "summary": "Lupa Password (Reset via Verifikasi NIK & OTP)",
+        "description": "Mereset password akun pasien dengan memverifikasi kecocokan Email, NIK (National ID), dan kode OTP.",
         "requestBody": {
           "required": true,
           "content": {
@@ -422,6 +635,7 @@
                 "required": [
                   "email",
                   "national_id",
+                  "otp_code",
                   "new_password"
                 ],
                 "properties": {
@@ -433,6 +647,11 @@
                   "national_id": {
                     "type": "string",
                     "example": "3201021234567890"
+                  },
+                  "otp_code": {
+                    "type": "string",
+                    "example": "123456",
+                    "description": "Kode OTP 6 digit yang dikirimkan ke email"
                   },
                   "new_password": {
                     "type": "string",
@@ -3140,6 +3359,921 @@
           }
         }
       }
+    },
+    "/api/queues/{id}/recall": {
+      "post": {
+        "tags": [
+          "Queues"
+        ],
+        "summary": "Panggil Ulang Antrean Pasien",
+        "description": "Hanya diizinkan untuk Dokter dan Admin. Memanggil ulang nomor antrean pasien yang sedang aktif dan menambahkan jumlah `recall_count`.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "ID Antrean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pemanggilan ulang berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Nomor antrean berhasil dipanggil kembali"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Queue"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses ditolak"
+          }
+        }
+      }
+    },
+    "/api/examinations/{id}/restore": {
+      "post": {
+        "tags": [
+          "Examinations"
+        ],
+        "summary": "Kembalikan Rekam Medis Terhapus",
+        "description": "Hanya untuk Admin. Menggunakan soft delete restore untuk rekam medis.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data rekam medis berhasil dikembalikan"
+          }
+        }
+      }
+    },
+    "/api/payments": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Ambil Semua Transaksi Pembayaran",
+        "description": "Mengambil daftar seluruh transaksi tagihan/pembayaran. Jika diakses oleh Pasien, otomatis hanya mengembalikan data transaksi miliknya sendiri (IDOR Protection).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar tagihan pembayaran berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Payment"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/{id}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Ambil Detail Pembayaran",
+        "description": "Mengambil rincian detail tagihan pembayaran. Pasien dilarang melihat tagihan milik pasien lain (IDOR Protection).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail tagihan pembayaran ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Payment"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Akses dilarang (IDOR)"
+          }
+        }
+      }
+    },
+    "/api/payments/{id}/upload-proof": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Upload Bukti Pembayaran Pasien",
+        "description": "Digunakan oleh Pasien untuk mengunggah gambar bukti transfer bank atau QRIS. Mengubah status pembayaran menjadi `waiting_verification`.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "payment_proof"
+                ],
+                "properties": {
+                  "payment_proof": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File gambar bukti transfer (jpeg, png, pdf, maks 2MB)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bukti transfer berhasil diunggah",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Bukti pembayaran berhasil diunggah"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Payment"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Gagal validasi gambar"
+          }
+        }
+      }
+    },
+    "/api/payments/{id}/verify": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Verifikasi Pembayaran Online",
+        "description": "Hanya diizinkan untuk Admin. Memverifikasi bukti pembayaran online yang dikirim pasien dan menandainya sebagai lunas (`status` = `paid`).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verifikasi pembayaran berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Pembayaran berhasil diverifikasi"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Payment"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Bukan Admin"
+          }
+        }
+      }
+    },
+    "/api/payments/{id}/cash-pay": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Verifikasi Pembayaran Tunai",
+        "description": "Hanya diizinkan untuk Admin. Menandai pembayaran langsung menggunakan uang tunai di kasir klinik sebagai lunas (`status` = `paid`).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pembayaran tunai lunas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Pembayaran tunai berhasil diverifikasi"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Payment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/medicines": {
+      "get": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Ambil Semua Daftar Obat",
+        "description": "Mengambil semua katalog obat aktif di apotek klinik (stok, harga, satuan).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Katalog obat berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Medicine"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Tambah Obat Baru",
+        "description": "Hanya untuk Admin dan Apoteker. Menambahkan jenis obat baru ke inventaris apotek.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "stock",
+                  "unit",
+                  "price"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Paracetamol 500mg"
+                  },
+                  "stock": {
+                    "type": "integer",
+                    "example": 200
+                  },
+                  "unit": {
+                    "type": "string",
+                    "example": "Tablet"
+                  },
+                  "price": {
+                    "type": "number",
+                    "example": 5000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Obat berhasil ditambahkan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Medicine"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/medicines/{id}": {
+      "get": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Ambil Detail Obat",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail obat ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Medicine"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Perbarui Data/Stok Obat",
+        "description": "Hanya diizinkan untuk Admin dan Apoteker.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Paracetamol 500mg (Generik)"
+                  },
+                  "stock": {
+                    "type": "integer",
+                    "example": 250
+                  },
+                  "price": {
+                    "type": "number",
+                    "example": 5500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Obat berhasil diperbarui"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Hapus Obat (Soft Delete)",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Obat berhasil dihapus secara logis"
+          }
+        }
+      }
+    },
+    "/api/medicines/{id}/restore": {
+      "post": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Kembalikan Obat Terhapus",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Obat berhasil diaktifkan kembali"
+          }
+        }
+      }
+    },
+    "/api/pharmacy/queues": {
+      "get": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Daftar Antrean Obat Apotek",
+        "description": "Hanya diizinkan untuk Admin dan Apoteker. Mengambil daftar antrean yang sudah selesai diperiksa dokter (`completed`) dan siap dilakukan penebusan/penyerahan obat.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Antrean resep obat berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "example": 5
+                          },
+                          "queue_number": {
+                            "type": "string",
+                            "example": "POL-003"
+                          },
+                          "patient_name": {
+                            "type": "string",
+                            "example": "Budi Santoso"
+                          },
+                          "status_pembayaran": {
+                            "type": "string",
+                            "example": "paid"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pharmacy/queues/{id}/dispense": {
+      "post": {
+        "tags": [
+          "Pharmacy & Medicines"
+        ],
+        "summary": "Penyerahan Obat Pasien",
+        "description": "Hanya diizinkan untuk Admin dan Apoteker. Menandai bahwa obat-obatan dalam resep pemeriksaan terkait telah berhasil dikemas dan diserahkan kepada pasien (memperbarui `dispensed_at` pada transaksi pembayaran terkait).",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "ID Antrean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Penyerahan obat berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Obat berhasil diserahkan kepada pasien"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clinic-holidays/{id}": {
+      "get": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Ambil Detail Hari Libur",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail hari libur ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicHoliday"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Perbarui Hari Libur Klinik",
+        "description": "Hanya untuk Admin.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "holiday_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-06-26"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Cuti Bersama Libur Nasional"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hari libur klinik berhasil diperbarui"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Hapus Hari Libur Klinik",
+        "description": "Hanya untuk Admin.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hari libur klinik berhasil dihapus"
+          }
+        }
+      }
+    },
+    "/api/doctor-leaves/{id}": {
+      "get": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Ambil Detail Cuti Dokter",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail cuti dokter ditemukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorLeave"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Perbarui Pengajuan Cuti Dokter",
+        "description": "Hanya untuk Admin.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "leave_date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-06-02"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "example": "Sakit dengan surat keterangan dokter"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cuti dokter berhasil diperbarui"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Leaves & Holidays"
+        ],
+        "summary": "Hapus/Batalkan Cuti Dokter",
+        "description": "Hanya untuk Admin.",
+        "security": [
+          {
+            "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cuti dokter berhasil dihapus"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3485,6 +4619,135 @@
           },
           "doctor": {
             "$ref": "#/components/schemas/Doctor"
+          }
+        }
+      },
+      "PuskesmasProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Puskesmas Nalaseva"
+          },
+          "address": {
+            "type": "string",
+            "example": "Jl. Raya Jember No. 45, Sumbersari, Jember"
+          },
+          "phone": {
+            "type": "string",
+            "example": "0331-123456"
+          },
+          "email": {
+            "type": "string",
+            "example": "info@puskesmas-nalaseva.go.id"
+          },
+          "logo_url": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/clinic.png"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -8.165143
+          },
+          "longitude": {
+            "type": "number",
+            "example": 113.716255
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "queue_id": {
+            "type": "integer",
+            "example": 3
+          },
+          "examination_id": {
+            "type": "integer",
+            "nullable": true,
+            "example": 5
+          },
+          "transaction_number": {
+            "type": "string",
+            "example": "INV-20260603-0021"
+          },
+          "registration_fee": {
+            "type": "string",
+            "example": "10000.00"
+          },
+          "medicine_fee": {
+            "type": "string",
+            "example": "25000.00"
+          },
+          "total_amount": {
+            "type": "string",
+            "example": "35000.00"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "qris"
+          },
+          "payment_proof": {
+            "type": "string",
+            "nullable": true,
+            "example": "payment_proofs/proof_image.png"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "waiting_verification",
+              "paid",
+              "refunded",
+              "canceled"
+            ],
+            "example": "waiting_verification"
+          },
+          "paid_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-06-03T02:00:00Z"
+          },
+          "dispensed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-06-03T02:15:00Z"
+          }
+        }
+      },
+      "Medicine": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Amoxicillin 500mg"
+          },
+          "stock": {
+            "type": "integer",
+            "example": 150
+          },
+          "unit": {
+            "type": "string",
+            "example": "Tablet"
+          },
+          "price": {
+            "type": "string",
+            "example": "3500.00"
           }
         }
       },
