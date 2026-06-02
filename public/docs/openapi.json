@@ -3413,35 +3413,6 @@
         }
       }
     },
-    "/api/examinations/{id}/restore": {
-      "post": {
-        "tags": [
-          "Examinations"
-        ],
-        "summary": "Kembalikan Rekam Medis Terhapus",
-        "description": "Hanya untuk Admin. Menggunakan soft delete restore untuk rekam medis.",
-        "security": [
-          {
-            "sanctumAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Data rekam medis berhasil dikembalikan"
-          }
-        }
-      }
-    },
     "/api/payments": {
       "get": {
         "tags": [
