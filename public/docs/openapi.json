@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "https://nalaseva-api-production.up.railway.app",
+      "url": "https://nalaseva-api.up.railway.app",
       "description": "Server Produksi (Railway)"
     },
     {
