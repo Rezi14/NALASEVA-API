@@ -155,6 +155,7 @@ class QueueService
                                          ->where('date', $data['date'])
                                          ->whereNotIn('status', ['cancelled'])
                                          ->lockForUpdate()
+                                         ->get()
                                          ->count();
 
             if ($activeBookingsCount >= $quota) {
