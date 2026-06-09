@@ -484,7 +484,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | Semua Pengguna Terautentikasi |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `phone` (string, optional)<br>- `address` (string, optional) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` / `full_name` (string, optional)<br>- `email` (string, optional, unique)<br>- `phone` / `phone_number` (string, optional)<br>- `gender` (string, optional, "Laki-laki"/"Perempuan")<br>- `birth_date` (string, optional, format YYYY-MM-DD)<br>- `address` (string, optional)<br>- `national_id` (string, optional, 16 digit NIK, unique) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Profil berhasil diperbarui"<br>}</code></pre><br>*Catatan: Dilindungi IDOR Protection.* |
 | | Keterangan | Memperbarui profil personal pasien. Pasien biasa hanya bisa mengubah miliknya sendiri. |
 | --- | --- | --- |
@@ -580,7 +580,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON, Opsional):**<br>- `reason` (string, optional, alasan check-in darurat) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Check-in berhasil via QR Scanner",<br>  "data": { "id": 1, "status": "waiting", "check_in_time": "..." }<br>}</code></pre> |
 | | Keterangan | Verifikasi kedatangan fisik pasien di klinik pada hari H kunjungan. Status antrean berubah menjadi `waiting` dan antrean masuk ke dalam antrean ruang periksa. |
 | --- | --- | --- |
@@ -589,7 +589,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Method | `POST` |
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
-| | Authorisasi | `admin`, `doctor` |
+| | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Antrean berhasil digeser ke urutan paling belakang",<br>  "data": { ... }<br>}</code></pre> |
 | | Keterangan | Menggeser nomor antrean pasien yang terlewat/tidak hadir ke posisi paling akhir pada hari tersebut dan me-reset statusnya kembali ke `booked`. |
@@ -599,7 +599,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Method | `POST` |
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
-| | Authorisasi | `admin`, `doctor` |
+| | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Nomor antrean berhasil dipanggil kembali",<br>  "data": { "id": 1, "recall_count": 1, ... }<br>}</code></pre> |
 | | Keterangan | Memanggil kembali nomor urut antrean pasien ke pengeras suara dan menambahkan nilai `recall_count`. |
@@ -635,10 +635,10 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Method | `POST` |
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
-| | Authorisasi | `admin`, `doctor` |
-| | Parameters | **Request Body (JSON):**<br>- `queue_id` (integer, required)<br>- `doctor_id` (integer, required)<br>- `complaint` (string, required)<br>- `diagnosis` (string, required)<br>- `treatment` (string, required)<br>- `medicines` (array, optional, daftar obat resep)<br>  *Format item obat:* `{ "medicine_id": 1, "quantity": 10, "instruction": "3x1" }` |
-| | Return value | `201 Created`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data pemeriksaan berhasil disimpan",<br>  "data": { "id": 1, "diagnosis": "Influenza", ... }<br>}</code></pre> |
-| | Keterangan | Menyimpan rekam medis dan keluhan periksa pasien. Secara otomatis mengubah status antrean (`queues.status`) terkait menjadi `completed` dan memotong stok obat jika terdapat obat yang diresepkan. |
+| | Authorisasi | `doctor` |
+| | Parameters | **Request Body (JSON):**<br>- `queue_id` (integer, required)<br>- `complaint` (string, required)<br>- `diagnosis` (string, required)<br>- `treatment` (string, required)<br>- `prescription_items` (array, optional, daftar obat resep)<br>  *Format item:* `{ "medicine_id": 1, "quantity": 10, "instruction": "3x1" }`<br>*Catatan: `doctor_id` tidak perlu dikirim — otomatis diambil dari token login dokter.* |
+| | Return value | `201 Created`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data pemeriksaan dan tagihan pembayaran berhasil disimpan",<br>  "data": { "id": 1, "diagnosis": "Influenza", ... }<br>}</code></pre> |
+| | Keterangan | Menyimpan rekam medis dan keluhan periksa pasien. Secara otomatis mengubah status antrean (`queues.status`) terkait menjadi `completed` dan membuat tagihan pembayaran otomatis. Stok obat akan dikurangi saat penyerahan oleh apoteker (bukan saat pemeriksaan). |
 | --- | --- | --- |
 | **60** | Nama | Perbarui Hasil Pemeriksaan |
 | | URL | `/api/examinations/{id}` |
@@ -712,7 +712,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `status` (string, required, "paid"/"failed") |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Pembayaran berhasil diverifikasi",<br>  "data": { "id": 1, "status": "paid", "paid_at": "..." }<br>}</code></pre> |
 | | Keterangan | Menandai transaksi yang bukti bayar digitalnya sudah sesuai sebagai lunas (`paid`) dan mencatat `paid_at`. |
 | --- | --- | --- |
@@ -748,7 +748,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin`, `pharmacist` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required, ID antrean) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required, **ID Payment** — bukan ID antrean) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Obat berhasil diserahkan kepada pasien"<br>}</code></pre> |
 | | Keterangan | Apoteker menandai penyerahan obat fisik ke pasien (mengisi nilai `dispensed_at` pada transaksi pembayaran terkait). |
 | --- | --- | --- |
@@ -878,15 +878,15 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data user berhasil diperbarui"<br>}</code></pre> |
 | | Keterangan | Admin mengedit profil user tertentu. |
 | --- | --- | --- |
-| **82** | Nama | Hapus Pengguna (Admin — Kebijakan Baru: Dilarang) |
+| **82** | Nama | Hapus Pengguna (Admin — Soft Delete) |
 | | URL | `/api/users/{id}` |
 | | Method | `DELETE` |
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `403 Forbidden`:<br><pre><code>{<br>  "status": "error",<br>  "message": "Akses ditolak. Kebijakan baru melarang penghapusan user oleh Admin."<br>}</code></pre> |
-| | Keterangan | Percobaan menghapus user secara langsung oleh Admin akan ditolak sistem untuk mengamankan riwayat audit (*audit trail*). |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "User berhasil dihapus"<br>}</code></pre><br>`403 Forbidden` (jika target adalah admin atau diri sendiri):<br><pre><code>{<br>  "status": "error",<br>  "message": "Akses ditolak. Anda tidak diperkenankan menghapus akun administrator lain."<br>}</code></pre> |
+| | Keterangan | Menghapus user secara lunak (*soft delete*). Admin **tidak** diperkenankan menghapus akunnya sendiri maupun akun administrator lain demi menjaga keamanan *audit trail*. |
 | --- | --- | --- |
 | **83** | Nama | Pulihkan Pengguna Terhapus |
 | | URL | `/api/users/{id}/restore` |

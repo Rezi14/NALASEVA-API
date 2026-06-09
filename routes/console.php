@@ -44,3 +44,46 @@ Artisan::command('queues:cancel-no-show', function () {
 
 // Jadwalkan perintah untuk berjalan setiap 5 menit
 Schedule::command('queues:cancel-no-show')->everyFiveMinutes();
+
+Artisan::command('payments:auto-expire', function () {
+    $now = Carbon::now();
+    $twoHoursAgo = $now->copy()->subHours(2);
+    
+    // Cari tagihan pending yang berumur > 2 jam
+    $expiredPayments = \App\Models\Payment::where('status', 'pending')
+        ->where('created_at', '<', $twoHoursAgo)
+        ->get();
+        
+    $expiredCount = 0;
+    foreach ($expiredPayments as $payment) {
+        $payment->update(['status' => 'cancelled']);
+        
+        // Kirim notifikasi ke pasien via FCM bahwa tagihan kedaluwarsa
+        $payment->load('queue.patient.user');
+        $patientToken = $payment->queue?->patient?->user?->fcm_token ?? null;
+        if ($patientToken) {
+            try {
+                $firebaseService = new \App\Services\FirebaseNotificationService();
+                $title = "Tagihan Kadaluwarsa";
+                $body = "Tagihan Anda dengan nomor transaksi " . $payment->transaction_number . " telah otomatis dibatalkan karena tidak dibayar dalam waktu 2 jam.";
+                $firebaseService->sendToToken($patientToken, $title, $body, [
+                    'payment_id' => $payment->id,
+                    'status' => 'cancelled',
+                    'type' => 'payment_updated'
+                ]);
+            } catch (\Exception $e) {
+                Log::error('FCM Auto Expire Notification Error: ' . $e->getMessage(), [
+                    'payment_id' => $payment->id,
+                    'exception' => $e
+                ]);
+            }
+        }
+        $expiredCount++;
+    }
+    
+    $this->info("Berhasil membatalkan {$expiredCount} tagihan tertunggak (kedaluwarsa).");
+})->purpose('Auto-cancel pending payments older than 2 hours');
+
+// Jadwalkan auto-expire setiap 5 menit
+Schedule::command('payments:auto-expire')->everyFiveMinutes();
+

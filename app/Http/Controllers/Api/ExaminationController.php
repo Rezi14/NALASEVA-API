@@ -17,7 +17,7 @@ class ExaminationController extends Controller
     use ApiResponse;
 
     public function index(Request $request) {
-        $query = Examination::with(['queue.polyclinic', 'queue.patient.user', 'doctor.user']);
+        $query = Examination::with(['queue.polyclinic', 'queue.patient.user', 'doctor.user', 'payment', 'prescriptionItems.medicine']);
         $user = $request->user();
 
         if ($user->role === 'patient') {
@@ -136,7 +136,8 @@ class ExaminationController extends Controller
                         $body = "Pemeriksaan selesai. Silakan lakukan pembayaran QRIS sebesar Rp" . number_format($totalAmount, 0, ',', '.') . " untuk mengambil obat.";
                         $firebaseService->sendToToken($patientToken, $title, $body, [
                             'payment_id' => $payment->id,
-                            'status' => 'pending'
+                            'status' => 'pending',
+                            'type' => 'payment_updated'
                         ]);
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('FCM New Invoice Notification Error: ' . $e->getMessage(), [

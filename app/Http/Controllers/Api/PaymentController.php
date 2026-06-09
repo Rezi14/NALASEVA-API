@@ -123,7 +123,8 @@ class PaymentController extends Controller
                         $body = "Pembayaran tagihan Anda berhasil terverifikasi. Resep obat Anda telah dikirim ke loket Apotek Puskesmas.";
                         $firebaseService->sendToToken($patientToken, $title, $body, [
                             'payment_id' => $payment->id,
-                            'status' => 'paid'
+                            'status' => 'paid',
+                            'type' => 'payment_updated'
                         ]);
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('FCM Verify Payment Notification Error: ' . $e->getMessage(), [
@@ -165,7 +166,8 @@ class PaymentController extends Controller
                     $body = "Pembayaran tunai Anda berhasil dicatat lunas. Resep obat Anda telah dikirim ke loket Apotek Puskesmas.";
                     $firebaseService->sendToToken($patientToken, $title, $body, [
                         'payment_id' => $payment->id,
-                        'status' => 'paid'
+                        'status' => 'paid',
+                        'type' => 'payment_updated'
                     ]);
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('FCM Cash Payment Notification Error: ' . $e->getMessage(), [

@@ -18,6 +18,8 @@ class ExaminationResource extends JsonResource
             'treatment' => $this->treatment,
             'queue' => new QueueResource($this->whenLoaded('queue')),
             'doctor' => new DoctorResource($this->whenLoaded('doctor')),
+            'payment' => new PaymentResource($this->payment),
+            'prescription_items' => $this->prescriptionItems,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

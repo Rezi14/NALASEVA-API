@@ -95,6 +95,19 @@ class QueueService
                 throw new Exception('Jadwal dokter tidak cocok dengan poliklinik atau dokter yang dipilih.', 422);
             }
 
+            // 3.5. Outstanding Payments (> 24 hours) Validation
+            $twoFourHoursAgo = Carbon::now()->subHours(24);
+            $hasOutstandingPayment = \App\Models\Payment::where('status', 'pending')
+                ->where('created_at', '<', $twoFourHoursAgo)
+                ->whereHas('queue', function ($q) use ($data) {
+                    $q->where('patient_id', $data['patient_id']);
+                })
+                ->exists();
+            if ($hasOutstandingPayment) {
+                throw new Exception('Harap lunasi tagihan Anda sebelumnya untuk dapat membuat antrean baru.', 422);
+            }
+
+
             // 4. Duplicate Active Queue for Polyclinic Validation
             $existingQueueSamePoly = Queue::where('patient_id', $data['patient_id'])
                                           ->where('polyclinic_id', $data['polyclinic_id'])

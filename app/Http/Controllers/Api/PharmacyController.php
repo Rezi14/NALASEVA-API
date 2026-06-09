@@ -72,7 +72,8 @@ class PharmacyController extends Controller
                         $body = "Obat Anda telah sukses diserahkan oleh Apoteker. Terima kasih, semoga lekas sembuh!";
                         $firebaseService->sendToToken($patientToken, $title, $body, [
                             'payment_id' => $payment->id,
-                            'status' => 'dispensed'
+                            'status' => 'dispensed',
+                            'type' => 'prescription_updated'
                         ]);
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('FCM Dispense Notification Error: ' . $e->getMessage(), [
