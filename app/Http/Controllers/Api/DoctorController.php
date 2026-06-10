@@ -31,6 +31,17 @@ class DoctorController extends Controller
         return $this->successResponse(DoctorResource::collection($doctors), 'Daftar dokter berhasil diambil');
     }
 
+    public function show($id)
+    {
+        try {
+            $doctor = Doctor::findOrFail($id);
+            $doctor->load(['user', 'polyclinic']);
+            return $this->successResponse(new DoctorResource($doctor), 'Detail dokter berhasil diambil');
+        } catch (Exception $e) {
+            return $this->errorResponse('Data dokter tidak ditemukan', 404);
+        }
+    }
+
     public function myProfile(Request $request)
     {
         $doctor = Doctor::where('user_id', $request->user()->id)->first();

@@ -41,6 +41,16 @@ class DoctorLeaveController extends Controller
         return $this->successResponse(DoctorLeaveResource::collection($query->get()), 'Daftar cuti dokter berhasil diambil');
     }
 
+    public function show($id)
+    {
+        try {
+            $leave = DoctorLeave::with(['doctor.user', 'doctor.polyclinic'])->findOrFail($id);
+            return $this->successResponse(new DoctorLeaveResource($leave), 'Detail cuti dokter ditemukan');
+        } catch (Exception $e) {
+            return $this->errorResponse('Data cuti dokter tidak ditemukan', 404);
+        }
+    }
+
     public function store(StoreDoctorLeaveRequest $request)
     {
         try {

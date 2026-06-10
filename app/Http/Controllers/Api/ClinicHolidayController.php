@@ -26,6 +26,16 @@ class ClinicHolidayController extends Controller
         return $this->successResponse(ClinicHolidayResource::collection($holidays), 'Daftar hari libur berhasil diambil');
     }
 
+    public function show($id)
+    {
+        try {
+            $holiday = ClinicHoliday::findOrFail($id);
+            return $this->successResponse(new ClinicHolidayResource($holiday), 'Detail hari libur ditemukan');
+        } catch (Exception $e) {
+            return $this->errorResponse('Data hari libur tidak ditemukan', 404);
+        }
+    }
+
     public function store(StoreClinicHolidayRequest $request)
     {
         $holiday = ClinicHoliday::create($request->validated());

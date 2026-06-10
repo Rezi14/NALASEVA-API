@@ -177,7 +177,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Poliklinik berhasil dihapus secara logis"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Poliklinik berhasil dihapus"<br>}</code></pre> |
 | | Keterangan | Menghapus poliklinik menggunakan mekanisme *soft delete* (masuk tempat sampah). |
 | --- | --- | --- |
 | **17** | Nama | Pulihkan Poliklinik Terhapus |
@@ -187,7 +187,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Poliklinik berhasil dipulihkan"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data poliklinik berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Mengaktifkan kembali data poliklinik yang sebelumnya telah di-soft delete. |
 
 ---
@@ -213,7 +213,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | Semua Pengguna Terautentikasi |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 1, "specialization": "Gigi", ... }<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Detail dokter berhasil diambil",<br>  "data": { "id": 1, "specialization": "Gigi", ... }<br>}</code></pre> |
 | | Keterangan | Menampilkan detail profil dan penugasan poliklinik dokter tertentu. |
 | --- | --- | --- |
 | **20** | Nama | Tambahkan Dokter Baru |
@@ -232,7 +232,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `specialization` (string, optional)<br>- `phone` (string, optional)<br>- `address` (string, optional)<br>- `polyclinic_id` (integer, optional) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `specialization` (string, optional)<br>- `phone` (string, optional)<br>- `address` (string, optional)<br>- `polyclinic_id` (integer, optional)<br>- `license_number` (string, optional)<br>- `national_id` (string, optional, unique NIK, 16 digit)<br>- `gender` (string, optional, "Laki-laki"/"Perempuan")<br>- `birth_date` (string, optional, format YYYY-MM-DD) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data dokter berhasil diperbarui"<br>}</code></pre> |
 | | Keterangan | Memperbarui profil dan penugasan poliklinik dokter terdaftar. |
 | --- | --- | --- |
@@ -243,7 +243,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Dokter dan akun berhasil dihapus secara logis"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Dokter dan akun berhasil dihapus"<br>}</code></pre> |
 | | Keterangan | Menghapus secara lunak data dokter beserta user login-nya (*soft delete*). |
 | --- | --- | --- |
 | **23** | Nama | Pulihkan Akun Dokter Terhapus |
@@ -253,7 +253,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Dokter berhasil dipulihkan"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data dokter berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Memulihkan data dokter dan mengaktifkan kembali akun login dokter terkait. |
 | --- | --- | --- |
 | **24** | Nama | Ambil Profil Dokter Aktif |
@@ -312,7 +312,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `start_time` (string, optional)<br>- `end_time` (string, optional) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `doctor_id` (integer, optional)<br>- `day_of_week` (string, optional)<br>- `start_time` (string, optional, HH:MM)<br>- `end_time` (string, optional, HH:MM) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Jadwal berhasil diperbarui"<br>}</code></pre> |
 | | Keterangan | Memperbarui jam shift dokter yang sudah terdaftar. |
 | --- | --- | --- |
@@ -323,7 +323,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Jadwal berhasil dihapus secara logis"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Jadwal berhasil dihapus"<br>}</code></pre> |
 | | Keterangan | Menghapus shift praktik dokter secara lunak. |
 | --- | --- | --- |
 | **31** | Nama | Pulihkan Jadwal Terhapus |
@@ -333,7 +333,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Jadwal berhasil dipulihkan"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data jadwal berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Memulihkan jadwal dokter yang sebelumnya di-soft delete. |
 
 ---
@@ -359,7 +359,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | Semua Pengguna Terautentikasi |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 1, "holiday_date": "2026-06-25", ... }<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 1, "holiday_date": "2026-06-25", "description": "Hari Raya" }<br>}</code></pre> |
 | | Keterangan | Mengambil data spesifik hari libur tertentu. |
 | --- | --- | --- |
 | **34** | Nama | Tetapkan Tanggal Libur Klinik |
@@ -409,7 +409,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | Semua Pengguna Terautentikasi |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 1, "doctor_id": 1, "leave_date": "2026-06-01", ... }<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 1, "doctor_id": 1, "leave_date": "2026-06-01", "reason": "Sakit" }<br>}</code></pre> |
 | | Keterangan | Mengambil rincian pengajuan cuti dokter tertentu. |
 | --- | --- | --- |
 | **39** | Nama | Ajukan Cuti Dokter |
@@ -428,7 +428,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `leave_date` (string, optional)<br>- `reason` (string, optional) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `doctor_id` (integer, optional)<br>- `leave_date` (string, optional)<br>- `reason` (string, optional) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Cuti dokter berhasil diperbarui"<br>}</code></pre> |
 | | Keterangan | Memperbarui tanggal atau keterangan cuti dokter. |
 | --- | --- | --- |
@@ -495,7 +495,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Pasien berhasil dihapus secara logis"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Pasien berhasil dihapus"<br>}</code></pre> |
 | | Keterangan | Melakukan soft delete terhadap data pasien dan akun user terkait. |
 | --- | --- | --- |
 | **47** | Nama | Pulihkan Pasien Terhapus |
@@ -505,7 +505,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Pasien berhasil dipulihkan"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data pasien berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Mengaktifkan kembali data pasien dan user yang telah dihapus secara lunak. |
 
 ---
@@ -540,7 +540,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | Semua Pengguna Terautentikasi (Terutama Pasien/Admin) |
-| | Parameters | **Request Body (JSON):**<br>- `patient_id` (integer, required)<br>- `polyclinic_id` (integer, required)<br>- `doctor_id` (integer, required)<br>- `date` (string, required, format YYYY-MM-DD)<br>- `is_priority` (boolean, optional) |
+| | Parameters | **Request Body (JSON):**<br>- `patient_id` (integer, required)<br>- `polyclinic_id` (integer, required)<br>- `doctor_id` (integer, required)<br>- `doctor_schedule_id` (integer, required)<br>- `date` (string, required, format YYYY-MM-DD)<br>- `is_priority` (boolean, optional) |
 | | Return value | `201 Created`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Antrian berhasil dibuat",<br>  "data": { "id": 3, "queue_number": "GIG-001", "date": "2026-06-05", ... }<br>}</code></pre> |
 | | Keterangan | Melakukan pemesanan tiket antrean. Dilengkapi aturan bisnis ketat (Booking H-7 s/d H-1, kuota penuh, pencegahan antrean ganda pada hari yang sama di poli yang sama, dan lock data saat penomoran antrean). |
 | --- | --- | --- |
@@ -571,7 +571,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Antrean berhasil dipulihkan"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data antrian berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Memulihkan antrean terhapus. |
 | --- | --- | --- |
 | **54** | Nama | Verifikasi Check-In Antrean |
@@ -646,7 +646,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin`, `doctor` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `diagnosis` (string, optional)<br>- `treatment` (string, optional) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `queue_id` (integer, optional)<br>- `doctor_id` (integer, optional)<br>- `complaint` (string, optional)<br>- `diagnosis` (string, optional)<br>- `treatment` (string, optional) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data rekam medis berhasil diperbarui"<br>}</code></pre> |
 | | Keterangan | Memperbarui diagnosis atau deskripsi tindakan pengobatan pasien. |
 | --- | --- | --- |
@@ -657,7 +657,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin`, `doctor` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data pemeriksaan berhasil dihapus secara logis"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data pemeriksaan berhasil dihapus"<br>}</code></pre> |
 | | Keterangan | Melakukan soft delete terhadap data rekam pemeriksaan. |
 | --- | --- | --- |
 | **62** | Nama | Pulihkan Rekam Medis Terhapus |
@@ -667,7 +667,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data rekam medis berhasil dikembalikan"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data pemeriksaan berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Memulihkan kembali data pemeriksaan yang di-soft delete. |
 
 ---
@@ -749,7 +749,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin`, `pharmacist` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required, **ID Payment** — bukan ID antrean) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Obat berhasil diserahkan kepada pasien"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Resep obat berhasil diserahkan dan stok obat diperbarui."<br>}</code></pre> |
 | | Keterangan | Apoteker menandai penyerahan obat fisik ke pasien (mengisi nilai `dispensed_at` pada transaksi pembayaran terkait). |
 | --- | --- | --- |
 | **70** | Nama | Ambil Semua Daftar Obat |
@@ -799,7 +799,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin`, `pharmacist` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Obat berhasil dihapus secara logis"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Obat berhasil dihapus (soft delete)"<br>}</code></pre> |
 | | Keterangan | Soft delete data obat dari daftar aktif apotek. |
 | --- | --- | --- |
 | **75** | Nama | Pulihkan Obat Terhapus |
@@ -809,7 +809,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin`, `pharmacist` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Obat berhasil diaktifkan kembali"<br>}</code></pre> |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Obat berhasil dikembalikan",<br>  "data": { ... }<br>}</code></pre> |
 | | Keterangan | Mengaktifkan kembali obat yang telah dinonaktifkan secara logis. |
 
 ---
@@ -854,7 +854,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Request Body (JSON):**<br>- `name` (string, required)<br>- `email` (string, required, unique)<br>- `password` (string, required)<br>- `role` (string, required, "doctor"/"patient"/"pharmacist")<br>- `phone` (string, required)<br>- `address` (string, required)<br>- `national_id` (string, required, unique NIK)<br>- `gender` (string, required)<br>- `birth_date` (string, required, format YYYY-MM-DD) |
+| | Parameters | **Request Body (JSON):**<br>- `name` (string, required)<br>- `email` (string, required, unique)<br>- `password` (string, required)<br>- `role` (string, required, "doctor"/"patient")<br>- `phone` (string, required)<br>- `address` (string, required)<br>- `national_id` (string, required, unique NIK)<br>- `gender` (string, required)<br>- `birth_date` (string, required, format YYYY-MM-DD) |
 | | Return value | `201 Created`:<br><pre><code>{<br>  "status": "success",<br>  "message": "User berhasil ditambahkan",<br>  "data": { ... }<br>}</code></pre> |
 | | Keterangan | Membantu menambahkan pengguna (misal dokter/pasien baru) secara manual dari sisi Admin. |
 | --- | --- | --- |
@@ -874,9 +874,9 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `email` (string, optional)<br>- `phone` (string, optional) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `email` (string, optional, unique)<br>- `password` (string, optional, nullable)<br>- `phone` (string, optional)<br>- `address` (string, optional)<br>- `national_id` (string, optional, unique, 16 digit NIK)<br>- `gender` (string, optional, "Laki-laki"/"Perempuan")<br>- `birth_date` (string, optional, format YYYY-MM-DD) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data user berhasil diperbarui"<br>}</code></pre> |
-| | Keterangan | Admin mengedit profil user tertentu. |
+| | Keterangan | Mengubah profil akun sendiri milik Admin yang sedang login (dibatasi oleh kode program yang hanya mengizinkan modifikasi jika ID target sama dengan ID pengguna yang sedang login). |
 | --- | --- | --- |
 | **82** | Nama | Hapus Pengguna (Admin — Soft Delete) |
 | | URL | `/api/users/{id}` |
