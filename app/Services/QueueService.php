@@ -274,29 +274,29 @@ class QueueService
         $queueToUpdate->update($data);
         Queue::recalculateEstimatedTimes($queueToUpdate->polyclinic_id, $queueToUpdate->date);
 
-        if (isset($data['status']) && $data['status'] === 'examining') {
-            $updatedQueue = Queue::with('patient.user')->find($id);
-            $fcmToken = $updatedQueue->patient?->user?->fcm_token ?? null;
+        $updatedQueue = $queueToUpdate->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
+        $fcmToken = $updatedQueue->patient?->user?->fcm_token ?? null;
+        $polyName = $updatedQueue->polyclinic?->name ?? 'Poliklinik';
+        $queueNum = $updatedQueue->queue_number ?? '-';
 
-            if ($fcmToken) {
-                try {
-                    $firebaseService = new FirebaseNotificationService();
-                    $title = "Giliran Anda!";
-                    $body = "Silakan masuk ke ruangan dokter sekarang (Nomor Antrean: {$updatedQueue->queue_number}).";
-                    $firebaseService->sendToToken($fcmToken, $title, $body, [
-                        'queue_id' => $id,
-                        'status' => 'examining'
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error('FCM Queue Notification Error: ' . $e->getMessage(), [
-                        'queue_id' => $id,
-                        'exception' => $e
-                    ]);
+        if ($fcmToken && isset($data['status'])) {
+            try {
+                $firebaseService = new FirebaseNotificationService();
+                $notifData = ['type' => 'queue_updated', 'queue_id' => (string)$id, 'status' => $data['status']];
+
+                if ($data['status'] === 'examining') {
+                    $firebaseService->sendToToken($fcmToken, '🔔 Giliran Anda!',
+                        "Silakan masuk ke ruangan dokter sekarang. No. Antrean: {$queueNum}.", $notifData);
+                } elseif ($data['status'] === 'completed') {
+                    $firebaseService->sendToToken($fcmToken, '✅ Pemeriksaan Selesai',
+                        "Pemeriksaan Anda di {$polyName} telah selesai. Semoga lekas sembuh!", $notifData);
                 }
+            } catch (\Exception $e) {
+                Log::error('FCM Queue Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
             }
         }
 
-        return $queueToUpdate->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
+        return $updatedQueue;
     }
 
     public function destroyQueue(User $user, int $id): Queue
@@ -334,6 +334,22 @@ class QueueService
         $queue->update(['status' => 'cancelled']);
         Queue::recalculateEstimatedTimes($queue->polyclinic_id, $queue->date);
         $queue->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
+
+        // Kirim notifikasi pembatalan ke pasien
+        $fcmToken = $queue->patient?->user?->fcm_token ?? null;
+        $polyName = $queue->polyclinic?->name ?? 'Poliklinik';
+        $queueNum = $queue->queue_number ?? '-';
+        if ($fcmToken) {
+            try {
+                $firebaseService = new FirebaseNotificationService();
+                $firebaseService->sendToToken($fcmToken, '❌ Antrean Dibatalkan',
+                    "Antrean Anda di {$polyName} (No. {$queueNum}) telah dibatalkan.",
+                    ['type' => 'queue_updated', 'queue_id' => (string)$id, 'status' => 'cancelled']);
+            } catch (\Exception $e) {
+                Log::error('FCM Cancellation Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
+            }
+        }
+
         return $queue;
     }
 
@@ -369,8 +385,24 @@ class QueueService
             'reason' => $reason
         ]);
         Queue::recalculateEstimatedTimes($queue->polyclinic_id, $queue->date);
+        $queue->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
 
-        return $queue->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
+        // Kirim notifikasi check-in berhasil ke pasien
+        $fcmToken = $queue->patient?->user?->fcm_token ?? null;
+        $polyName = $queue->polyclinic?->name ?? 'Poliklinik';
+        $queueNum = $queue->queue_number ?? '-';
+        if ($fcmToken) {
+            try {
+                $firebaseService = new FirebaseNotificationService();
+                $firebaseService->sendToToken($fcmToken, '🟡 Check-In Berhasil',
+                    "Kehadiran Anda di {$polyName} telah diverifikasi. No. Antrean: {$queueNum}. Mohon tunggu giliran Anda.",
+                    ['type' => 'queue_updated', 'queue_id' => (string)$queue->id, 'status' => 'waiting']);
+            } catch (\Exception $e) {
+                Log::error('FCM CheckIn Notification Error: ' . $e->getMessage(), ['queue_id' => $queue->id]);
+            }
+        }
+
+        return $queue;
     }
 
     public function recallQueue(User $user, int $id): Queue
