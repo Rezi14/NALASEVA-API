@@ -290,6 +290,9 @@ class QueueService
                 } elseif ($data['status'] === 'completed') {
                     $firebaseService->sendToToken($fcmToken, '✅ Pemeriksaan Selesai',
                         "Pemeriksaan Anda di {$polyName} telah selesai. Semoga lekas sembuh!", $notifData);
+                } elseif ($data['status'] === 'cancelled') {
+                    $firebaseService->sendToToken($fcmToken, '❌ Antrean Dibatalkan',
+                        "Antrean Anda di {$polyName} (No. {$queueNum}) telah dibatalkan.", $notifData);
                 }
             } catch (\Exception $e) {
                 try {
