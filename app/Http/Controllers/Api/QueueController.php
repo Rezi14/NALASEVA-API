@@ -61,7 +61,7 @@ class QueueController extends Controller
         try {
             $queue = $this->queueService->updateQueue($request->user(), $id, $request->validated());
             return $this->successResponse(new QueueResource($queue), 'Status antrian berhasil diperbarui');
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             $statusCode = in_array($e->getCode(), [403, 404, 422]) ? $e->getCode() : 500;
             return $this->errorResponse($e->getMessage(), $statusCode);
         }

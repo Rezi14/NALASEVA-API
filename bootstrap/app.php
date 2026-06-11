@@ -19,10 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Illuminate\Foundation\Configuration\Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $e, Illuminate\Http\Request $request) {
             if ($request->is('api/*')) {
-                $isDebug = config('app.debug', false);
-                $message = $isDebug 
-                    ? ($e->getMessage() ?: 'Terjadi kesalahan sistem') 
-                    : 'Terjadi kesalahan internal pada server. Silakan hubungi administrator.';
+                $message = $e->getMessage() ?: 'Terjadi kesalahan sistem';
 
                 return response()->json([
                     'status' => 'error',
