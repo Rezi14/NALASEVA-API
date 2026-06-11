@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Kreait\Firebase\Factory;
 use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification;
 use Illuminate\Support\Facades\Log;
 
 class FirebaseNotificationService
@@ -73,11 +72,17 @@ class FirebaseNotificationService
         }
 
         try {
-            $notification = Notification::create($title, $body);
-            
-            $message = CloudMessage::withTarget('token', $token)
-                ->withNotification($notification)
-                ->withData($data);
+            // Ensure all data values are strings (FCM requirement)
+            $stringData = array_map('strval', $data);
+
+            $message = CloudMessage::fromArray([
+                'token' => $token,
+                'notification' => [
+                    'title' => $title,
+                    'body'  => $body,
+                ],
+                'data' => $stringData,
+            ]);
 
             $this->messaging->send($message);
             return true;
