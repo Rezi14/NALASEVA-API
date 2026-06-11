@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class PaymentResource extends JsonResource
 {
@@ -20,7 +19,11 @@ class PaymentResource extends JsonResource
             'total_amount' => $this->total_amount,
             'payment_method' => $this->payment_method,
             'payment_proof' => $this->payment_proof,
-            'payment_proof_url' => $this->payment_proof ? Storage::disk('public')->url($this->payment_proof) : null,
+            // Mengarah ke endpoint streaming /proof-image yang andal (CORS-safe)
+            // agar gambar bisa ditampilkan di Flutter Web.
+            'payment_proof_url' => $this->payment_proof
+                ? rtrim(env('APP_URL', 'https://nalaseva-api.up.railway.app'), '/') . '/api/payments/' . $this->id . '/proof-image'
+                : null,
             'status' => $this->status,
             'paid_at' => $this->paid_at,
             'dispensed_at' => $this->dispensed_at,
@@ -31,3 +34,4 @@ class PaymentResource extends JsonResource
         ];
     }
 }
+

@@ -70,14 +70,17 @@ class PaymentController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                // Delete old proof if exists
-                if ($payment->payment_proof) {
-                    Storage::disk('public')->delete($payment->payment_proof);
-                }
+                $file = $request->file('payment_proof');
 
-                $path = $request->file('payment_proof')->store('payment_proofs', 'public');
+                // Encode ke Base64 dan simpan langsung ke kolom payment_proof di database.
+                // Railway menggunakan ephemeral filesystem (file hilang saat restart),
+                // sehingga Base64 di DB adalah satu-satunya cara yang andal dan persisten.
+                $mimeType = $file->getMimeType();
+                $base64Data = base64_encode(file_get_contents($file->getRealPath()));
+                $dataUri = "data:{$mimeType};base64,{$base64Data}";
+
                 $payment->update([
-                    'payment_proof' => $path,
+                    'payment_proof' => $dataUri,
                     'status' => 'waiting_verification',
                 ]);
 
@@ -192,17 +195,30 @@ class PaymentController extends Controller
                 return response()->json(['message' => 'Bukti pembayaran belum diunggah.'], 404);
             }
 
-            if (!Storage::disk('public')->exists($payment->payment_proof)) {
-                return response()->json(['message' => 'File bukti pembayaran tidak ditemukan.'], 404);
+            // payment_proof menyimpan data URI Base64: "data:image/jpeg;base64,XXXXX"
+            if (str_starts_with($payment->payment_proof, 'data:image/')) {
+                preg_match('/^data:(image\/\w+);base64,(.+)$/', $payment->payment_proof, $matches);
+                if (count($matches) === 3) {
+                    $mimeType = $matches[1];
+                    $imageData = base64_decode($matches[2]);
+                    return response($imageData, 200)
+                        ->header('Content-Type', $mimeType)
+                        ->header('Access-Control-Allow-Origin', '*')
+                        ->header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+                }
             }
 
-            $file = Storage::disk('public')->get($payment->payment_proof);
-            $mimeType = Storage::disk('public')->mimeType($payment->payment_proof);
+            // Fallback: format lama (path file di storage, mungkin masih ada)
+            if (Storage::disk('public')->exists($payment->payment_proof)) {
+                $file = Storage::disk('public')->get($payment->payment_proof);
+                $mimeType = Storage::disk('public')->mimeType($payment->payment_proof);
+                return response($file, 200)
+                    ->header('Content-Type', $mimeType)
+                    ->header('Access-Control-Allow-Origin', '*')
+                    ->header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            }
 
-            return response($file, 200)
-                ->header('Content-Type', $mimeType)
-                ->header('Access-Control-Allow-Origin', '*')
-                ->header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            return response()->json(['message' => 'File bukti pembayaran tidak dapat diakses.'], 404);
         } catch (Exception $e) {
             return response()->json(['message' => 'Gagal mengambil bukti pembayaran: ' . $e->getMessage()], 500);
         }

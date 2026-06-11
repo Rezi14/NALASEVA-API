@@ -19,7 +19,9 @@ return new class extends Migration {
             $table->decimal('medicine_fee', 10, 2)->default(0.00);
             $table->decimal('total_amount', 10, 2);
             $table->string('payment_method')->default('transfer_bank');
-            $table->string('payment_proof')->nullable();
+            // longText agar bisa menyimpan gambar bukti bayar sebagai Base64 secara langsung
+            // (Railway ephemeral filesystem menyebabkan file hilang setiap restart container).
+            $table->longText('payment_proof')->nullable();
             $table->enum('status', ['pending', 'waiting_verification', 'paid', 'failed'])->default('pending')->index();
             $table->timestamp('paid_at')->nullable();
             $table->timestamp('dispensed_at')->nullable();
