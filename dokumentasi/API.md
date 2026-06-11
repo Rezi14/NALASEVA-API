@@ -1,6 +1,17 @@
 # Dokumentasi API - NalaSeva API
 
-Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yang tersedia pada sistem **NalaSeva**, disusun berdasarkan struktur tabel yang telah disepakati.
+Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yang tersedia pada sistem **NalaSeva**, diverifikasi langsung dari source code `routes/api.php` dan masing-masing controller yang aktif di production.
+
+> [!NOTE]
+> **Base URL:** `https://<domain>/api/` — Semua endpoint di bawah ini relatif terhadap prefix `/api/`.
+>
+> **Throttle Limits:** Login/Register/OTP dibatasi `throttle:auth`. Booking antrean & upload bukti bayar dibatasi `5 request/menit` per IP.
+>
+> **Status Enum Penting:**
+> - Antrean (`queues.status`): `booked` → `waiting` → `examining` → `completed` atau `cancelled`
+> - Pembayaran (`payments.status`): `pending` → `waiting_verification` → `paid` atau `failed`
+>
+> **Roles yang tersedia:** `admin`, `doctor`, `patient`, `pharmacist`
 
 ---
 
@@ -701,10 +712,10 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Method | `POST` |
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
-| | Authorisasi | `patient` |
-| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (Multipart Form-Data):**<br>- `payment_proof` (file, required, gambar jpg/png/pdf maks 2MB) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Bukti pembayaran berhasil diunggah",<br>  "data": { "id": 1, "status": "waiting_verification", ... }<br>}</code></pre> |
-| | Keterangan | Digunakan oleh pasien umum untuk mengunggah foto struk transfer atau bukti bayar QRIS. Mengubah status transaksi menjadi `waiting_verification`. |
+| | Authorisasi | Semua Pengguna Terautentikasi (IDOR Protection: pasien hanya bisa upload untuk tagihan miliknya) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (Multipart Form-Data):**<br>- `payment_proof` (file, required, gambar **jpeg/png/jpg saja**, maks **2MB**) |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Bukti pembayaran berhasil diunggah, menunggu verifikasi admin.",<br>  "data": { "id": 1, "status": "waiting_verification", ... }<br>}</code></pre><br>`400 Bad Request` (jika tagihan sudah lunas):<br><pre><code>{ "status": "error", "message": "Pembayaran sudah lunas." }</code></pre><br>`403 Forbidden` (jika tagihan bukan milik pasien ini) |
+| | Keterangan | Pasien mengunggah foto bukti transfer atau QRIS. File **tidak disimpan di filesystem** — di-encode ke **Base64 Data URI** lalu disimpan langsung ke kolom `payment_proof` (longText) di database, karena sistem di-deploy di Railway dengan *ephemeral filesystem*. Status berubah menjadi `waiting_verification`. Rate-limited: `5 request/menit`.
 | --- | --- | --- |
 | **66** | Nama | Verifikasi Pembayaran Online |
 | | URL | `/api/payments/{id}/verify` |
@@ -723,12 +734,25 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Pembayaran tunai berhasil diverifikasi",<br>  "data": { "id": 1, "status": "paid", "payment_method": "cash" }<br>}</code></pre> |
-| | Keterangan | Petugas klinik menandai tagihan dibayar tunai di kasir sebagai lunas (`paid`). |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Pembayaran tunai berhasil dicatat dan lunas.",<br>  "data": { "id": 1, "status": "paid", "payment_method": "cash", "paid_at": "..." }<br>}</code></pre><br>`400 Bad Request` (jika sudah lunas sebelumnya) |
+| | Keterangan | Petugas kasir menandai tagihan dibayar tunai di loket sebagai lunas (`paid`). Otomatis mengisi `payment_method: cash` dan `paid_at`. Mengirim notifikasi push FCM ke pasien bahwa pembayaran lunas dan resep dikirim ke apotek. |
+| --- | --- | --- |
+| **68 (Baru)** | Nama | Tampilkan Gambar Bukti Pembayaran |
+| | URL | `/api/payments/{id}/proof-image` |
+| | Method | `GET` |
+| | Type | **Public** (tanpa autentikasi) |
+| | Authentifikasi | **Tidak** |
+| | Authorisasi | Publik (siapa saja yang memiliki ID payment) |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
+| | Return value | `200 OK` — Binary image response dengan header `Content-Type: image/jpeg` (atau `image/png`).<br>`404 Not Found`:<br><pre><code>{ "message": "Bukti pembayaran belum diunggah." }</code></pre> |
+| | Keterangan | Endpoint publik yang mengembalikan gambar bukti bayar langsung dari Base64 Data URI yang tersimpan di database. Digunakan oleh Flutter admin untuk menampilkan gambar bukti transfer tanpa autentikasi token. Header CORS `Access-Control-Allow-Origin: *` diaktifkan. |
 
 ---
 
 ## 💊 Inventaris Obat & Farmasi (`Pharmacy & Medicines`)
+
+> [!NOTE]
+> Endpoint farmasi menggunakan **ID Payment** (bukan ID queue/antrean) sebagai parameter untuk operasi penyerahan obat.
 
 | No | API | Informasi |
 | :--- | :--- | :--- |
@@ -758,9 +782,9 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | Semua Pengguna Terautentikasi |
-| | Parameters | Tidak ada |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": [<br>    { "id": 1, "name": "Paracetamol", "stock": 150, "unit": "Tablet", "price": "3500.00" }<br>  ]<br>}</code></pre> |
-| | Keterangan | Menampilkan seluruh inventaris obat-obatan aktif. |
+| | Parameters | **Query Parameter (Opsional):**<br>- `search` (string, optional, filter nama obat)<br>- `page` (integer, optional, aktifkan paginasi)<br>- `per_page` (integer, optional, jumlah data per halaman, default: 20) |
+| | Return value | `200 OK` (tanpa paginasi):<br><pre><code>{<br>  "status": "success",<br>  "data": [<br>    { "id": 1, "name": "Paracetamol", "stock": 150, "unit": "Tablet", "price": "3500.00" }<br>  ]<br>}</code></pre> |
+| | Keterangan | Menampilkan seluruh inventaris obat-obatan aktif. Mendukung pencarian nama (`?search=parasetamol`) dan paginasi (`?page=1&per_page=20`). |
 | --- | --- | --- |
 | **71** | Nama | Ambil Detail Obat |
 | | URL | `/api/medicines/{id}` |
@@ -844,9 +868,9 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Type | Protected |
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
-| | Parameters | Tidak ada |
+| | Parameters | **Query Parameter (Opsional):**<br>- `page` (integer, optional, aktifkan paginasi)<br>- `per_page` (integer, optional, jumlah data per halaman, default: 20) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": [<br>    { "id": 1, "name": "Admin", "email": "admin@example.com", "role": "admin", ... }<br>  ]<br>}</code></pre> |
-| | Keterangan | Admin mengintip daftar seluruh akun pengguna terdaftar di sistem. |
+| | Keterangan | Admin melihat daftar seluruh akun pengguna terdaftar di sistem (semua role). Mendukung paginasi. |
 | --- | --- | --- |
 | **79** | Nama | Buat Pengguna Baru (Admin) |
 | | URL | `/api/users` |
@@ -875,8 +899,8 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authentifikasi | Ya (Bearer Token) |
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `email` (string, optional, unique)<br>- `password` (string, optional, nullable)<br>- `phone` (string, optional)<br>- `address` (string, optional)<br>- `national_id` (string, optional, unique, 16 digit NIK)<br>- `gender` (string, optional, "Laki-laki"/"Perempuan")<br>- `birth_date` (string, optional, format YYYY-MM-DD) |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data user berhasil diperbarui"<br>}</code></pre> |
-| | Keterangan | Mengubah profil akun sendiri milik Admin yang sedang login (dibatasi oleh kode program yang hanya mengizinkan modifikasi jika ID target sama dengan ID pengguna yang sedang login). |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data user berhasil diperbarui"<br>}</code></pre><br>`403 Forbidden`:<br><pre><code>{ "status": "error", "message": "Akses ditolak. Anda tidak memiliki otoritas untuk mengubah data user lain." }</code></pre> |
+| | Keterangan | Memperbarui profil akun pengguna. **Catatan kode:** Implementasi saat ini membatasi update hanya jika `id` target sama dengan `id` user yang login — artinya admin hanya bisa mengubah profil dirinya sendiri melalui endpoint ini (bukan akun lain). Untuk mengubah data user lain, gunakan endpoint manajemen dokter atau pasien. |
 | --- | --- | --- |
 | **82** | Nama | Hapus Pengguna (Admin — Soft Delete) |
 | | URL | `/api/users/{id}` |

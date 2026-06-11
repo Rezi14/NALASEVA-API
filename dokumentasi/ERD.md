@@ -1,6 +1,6 @@
-# Entity-Relationship Diagram (ERD) - NalaSeva API (Updated)
+# Entity-Relationship Diagram (ERD) - NalaSeva API
 
-Berikut adalah **Entity-Relationship Diagram (ERD)** untuk sistem **NalaSeva** yang telah diperbarui berdasarkan masukan *best practice* untuk integritas data, relasi pembayaran jamak, dan indeks komposit unik pada antrean.
+Berikut adalah **Entity-Relationship Diagram (ERD)** untuk sistem **NalaSeva** yang telah diverifikasi langsung dari source code migration, model Eloquent, dan controller yang berjalan di production.
 
 ---
 
@@ -198,16 +198,16 @@ erDiagram
         bigint patient_id FK
         bigint polyclinic_id FK
         bigint doctor_id FK
-        bigint doctor_schedule_id FK
+        bigint doctor_schedule_id FK "nullable"
         string queue_number "UK: (queue_number, date, polyclinic_id)"
         date date
-        string status
-        timestamp check_in_time
-        timestamp called_time
+        enum status "booked|waiting|examining|completed|cancelled"
+        timestamp check_in_time "nullable"
+        timestamp called_time "nullable"
         boolean is_priority
-        string reason
+        string reason "nullable"
         integer recall_count
-        time estimated_service_time
+        time estimated_service_time "nullable"
         timestamp created_at
         timestamp updated_at
         timestamp deleted_at
@@ -251,16 +251,16 @@ erDiagram
     payments {
         bigint id PK
         bigint queue_id FK
-        bigint examination_id FK
+        bigint examination_id FK "nullable"
         string transaction_number UK
         decimal registration_fee
         decimal medicine_fee
         decimal total_amount
-        string payment_method
-        string payment_proof
-        string status
-        timestamp paid_at
-        timestamp dispensed_at
+        string payment_method "default:transfer_bank"
+        longtext payment_proof "nullable, Base64 data URI"
+        enum status "pending|waiting_verification|paid|failed"
+        timestamp paid_at "nullable"
+        timestamp dispensed_at "nullable"
         timestamp created_at
         timestamp updated_at
         timestamp deleted_at
@@ -323,7 +323,7 @@ erDiagram
     examinations ||--o{ prescription_items : "has many (1:N)"
     medicines ||--o{ prescription_items : "has many (1:N)"
 
-    queues ||--o{ payments : "has many (1:N)"
+    queues ||--o| payments : "has one (1:1)"
     examinations ||--o{ payments : "has many (1:N)"
 ```
 
@@ -441,25 +441,28 @@ Table doctor_leaves {
 
 Table queues {
   id bigint [pk]
-  patient_id bigint
-  polyclinic_id bigint
-  doctor_id bigint
-  doctor_schedule_id bigint
+  patient_id bigint [ref: > patients.id]
+  polyclinic_id bigint [ref: > polyclinics.id]
+  doctor_id bigint [ref: > doctors.id]
+  doctor_schedule_id bigint [null, ref: > doctor_schedules.id, note: 'nullable']
   queue_number varchar
   date date
-  status varchar
-  check_in_time timestamp
-  called_time timestamp
-  is_priority boolean
-  reason varchar
-  recall_count integer
-  estimated_service_time time
+  status varchar [note: 'enum: booked, waiting, examining, completed, cancelled']
+  check_in_time timestamp [null]
+  called_time timestamp [null]
+  is_priority boolean [default: false]
+  reason varchar [null]
+  recall_count integer [default: 0]
+  estimated_service_time time [null]
   created_at timestamp
   updated_at timestamp
-  deleted_at timestamp
+  deleted_at timestamp [null]
 
   Indexes {
-    (queue_number, date, polyclinic_id) [unique]
+    (queue_number, date, polyclinic_id) [unique, name: 'queues_number_date_poly_unique']
+    (polyclinic_id, date, status) [name: 'queues_poly_date_status_idx']
+    (doctor_id, date, status) [name: 'queues_doc_date_status_idx']
+    (patient_id, date) [name: 'queues_pat_date_idx']
   }
 }
 
@@ -489,20 +492,20 @@ Table prescription_items {
 
 Table payments {
   id bigint [pk]
-  queue_id bigint
-  examination_id bigint
+  queue_id bigint [ref: > queues.id]
+  examination_id bigint [null, ref: > examinations.id, note: 'nullable, set null on delete']
   transaction_number varchar [unique]
-  registration_fee decimal
-  medicine_fee decimal
+  registration_fee decimal [default: 10000.00]
+  medicine_fee decimal [default: 0.00]
   total_amount decimal
-  payment_method varchar
-  payment_proof varchar
-  status varchar
-  paid_at timestamp
-  dispensed_at timestamp
+  payment_method varchar [default: 'transfer_bank', note: 'cash | transfer_bank | qris | bpjs']
+  payment_proof longtext [null, note: 'Base64 data URI image — disimpan di DB karena Railway ephemeral FS']
+  status varchar [note: 'enum: pending, waiting_verification, paid, failed']
+  paid_at timestamp [null]
+  dispensed_at timestamp [null]
   created_at timestamp
   updated_at timestamp
-  deleted_at timestamp
+  deleted_at timestamp [null]
 }
 
 Table clinic_holidays {
@@ -564,31 +567,49 @@ Ref: prescription_items.examination_id > examinations.id
 Ref: prescription_items.medicine_id > medicines.id
 
 Ref: payments.queue_id > queues.id
-Ref: payments.examination_id > examinations.id
+Ref: payments.examination_id > examinations.id  // nullable (set null on delete)
 ```
 
 ---
 
-## 🔑 Penjelasan Relasi & Indeks Baru (*Best Practice Updates*)
+## 🔑 Penjelasan Relasi, Indeks & Keputusan Desain
 
-1. **`examinations` & `queues` ➔ `payments` (One-to-Many / `1:N`)**
-   - **Perubahan:** Dari sebelumnya digambarkan sebagai One-to-One (`1:1`), kini dirancang sebagai **One-to-Many (`1:N`)**.
-   - **Alasan:** Memungkinkan skenario di mana satu pemeriksaan/kunjungan memiliki lebih dari satu transaksi pembayaran (misal: pembayaran pendaftaran awal dibayar terpisah dengan biaya penebusan resep obat).
+1. **`queues` ➔ `payments` (One-to-One / `1:1`)**
+   - Implementasi di model Eloquent menggunakan `hasOne(Payment::class)` — setiap kunjungan antrean menghasilkan **satu** invoice pembayaran.
+   - `examinations` juga berkaitan ke `payments` sebagai relasi One-to-Many (`1:N`) opsional, dimana `examination_id` bersifat **nullable** (jika pasien hanya membayar biaya pendaftaran tanpa pemeriksaan lanjutan/resep obat).
 
-2. **`doctor_schedules.day_of_week` (Menggunakan Enum Bahasa Inggris)**
-   - **Perubahan:** Kolom ini di tingkat database bertipe `enum('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')`.
-   - **Karakteristik:** Menggunakan standar bahasa Inggris di level database untuk kompabilitas datetime, dan secara otomatis dikonversi ke bahasa Indonesia (`Senin` - `Minggu`) oleh model Eloquent Laravel (`DoctorSchedule.php`) saat disajikan ke aplikasi.
+2. **`payments.payment_proof` disimpan sebagai Base64 di Database**
+   - **Alasan teknis:** Sistem di-deploy di **Railway** yang menggunakan *ephemeral filesystem* — setiap file yang diunggah ke filesystem lokal container akan hilang saat container restart.
+   - **Solusi:** Gambar bukti bayar di-encode ke format **Base64 Data URI** (`data:image/jpeg;base64,...`) lalu disimpan langsung sebagai `longText` di kolom `payment_proof`.
+   - **Endpoint akses:** `GET /api/payments/{id}/proof-image` (public) untuk menampilkan gambar dari Base64 di database.
 
-3. **`doctors.license_number` (Unique / `UK`)**
-   - **Perubahan:** Kolom nomor izin praktik (**SIP**) dokter didefinisikan sebagai indeks unik.
-   - **Alasan:** Menghindari pendaftaran ganda dari data dokter yang sama.
+3. **`payments.status` — Enum 4 Nilai**
+   - Nilai yang valid: `pending` → `waiting_verification` → `paid` atau `failed`.
+   - Alur: Pasien upload bukti → status jadi `waiting_verification` → Admin verifikasi → jadi `paid` atau `failed`. Untuk tunai: langsung `paid` via endpoint `cash-pay`.
 
-4. **`queues.queue_number` (Composite Unique Index / `UK`)**
-   - **Perubahan:** Ditambahkan indeks unik komposit pada kombinasi kolom `(queue_number, date, polyclinic_id)`.
-   - **Alasan:** Menjamin tidak ada nomor antrean duplikat pada tanggal yang sama untuk poliklinik yang sama, namun tetap mendukung nomor antrean yang sama untuk digunakan di poliklinik lain atau pada hari yang berbeda.
+4. **`queues.status` — Enum 5 Nilai**
+   - Nilai yang valid: `booked` → `waiting` (setelah check-in) → `examining` (saat dipanggil dokter) → `completed` (setelah dokter simpan rekam medis) atau `cancelled`.
 
-5. **Dukungan Kunjungan Jamak Pasien (Multi-Visits)**
-   - Model `queues` saat ini sudah **mendukung penuh** skenario jika seorang pasien melakukan kunjungan lebih dari sekali ke poliklinik yang sama dalam satu hari di jam berbeda. Hal ini dikarenakan setiap sesi kunjungan direpresentasikan oleh baris baru (*new record*) di tabel `queues` yang memuat ID uniknya sendiri (`queues.id`).
+5. **`doctor_schedules.day_of_week` (Menggunakan Enum Bahasa Inggris)**
+   - Kolom ini di tingkat database bertipe `enum('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')`.
+   - Secara otomatis dikonversi ke bahasa Indonesia (`Senin` – `Minggu`) oleh model Eloquent `DoctorSchedule.php` saat disajikan ke aplikasi.
+
+6. **`queues.queue_number` — 4 Indeks Komposit**
+   - `UNIQUE(queue_number, date, polyclinic_id)` — mencegah nomor antrean duplikat di poliklinik & hari yang sama.
+   - `INDEX(polyclinic_id, date, status)` — mempercepat query antrean harian per poli.
+   - `INDEX(doctor_id, date, status)` — mempercepat query antrean harian per dokter.
+   - `INDEX(patient_id, date)` — mempercepat pengecekan antrean pasien pada hari tertentu.
+
+7. **`queues.doctor_schedule_id` bersifat Nullable**
+   - FK ke `doctor_schedules` bersifat **nullable** untuk mendukung pendaftaran antrean walk-in langsung di loket tanpa harus memilih slot jadwal tertentu.
+
+8. **`users.role` — Enum 4 Role**
+   - Nilai yang valid: `admin`, `doctor`, `patient`, `pharmacist`.
+
+9. **Adaptive Waiting Time di `Queue` Model**
+   - Estimasi waktu tunggu dihitung secara **adaptif** berdasarkan rata-rata durasi 3 pemeriksaan terakhir hari ini di poliklinik yang sama (accessor `avg_waiting_time`).
+   - Jika belum ada data pemeriksaan hari ini, menggunakan nilai default dari `settings.slot_duration_minutes`.
+   - Posisi antrian pasien dihitung via accessor `position_waiting` dengan logika: pasien prioritas (lansia/ibu hamil/balita/disabilitas) didahulukan di depan pasien reguler.
 
 ---
 
@@ -601,18 +622,18 @@ Tabel master yang menyimpan data akun/identitas dasar seluruh pengguna sistem, b
 
 *   **`id`** (`bigint`, Primary Key): ID unik yang dihasilkan secara otomatis (auto-increment) untuk mengidentifikasi setiap pengguna.
 *   **`name`** (`string`): Nama lengkap pengguna sesuai dengan kartu identitas.
-*   **`email`** (`string`, Unique Key): Alamat surel unik pengguna yang digunakan untuk proses autentikasi (login) dan pengiriman notifikasi.
-*   **`password`** (`string`): Hash sandi keamanan pengguna yang dienkripsi menggunakan algoritma *hashing* aman (seperti bcrypt).
-*   **`role`** (`string`): Peran pengguna di dalam sistem (contoh: `admin`, `doctor`, `patient`, `pharmacist`) untuk mengatur hak akses (*Role-Based Access Control*).
-*   **`phone`** (`string`): Nomor telepon atau WhatsApp aktif pengguna untuk koordinasi atau pengiriman notifikasi/SMS.
+*   **`email`** (`string`, Unique Key): Alamat surel unik pengguna yang digunakan untuk proses autentikasi (login).
+*   **`password`** (`string`): Hash sandi keamanan pengguna (bcrypt).
+*   **`role`** (`enum`): Peran pengguna di dalam sistem untuk mengatur hak akses (*Role-Based Access Control*). Nilai valid: `admin`, `doctor`, `patient`, `pharmacist`. Default: `patient`.
+*   **`phone`** (`string`): Nomor telepon atau WhatsApp aktif pengguna.
 *   **`address`** (`text`): Alamat lengkap domisili pengguna.
-*   **`national_id`** (`string`, Unique Key): Nomor Induk Kependudukan (NIK) 16 digit yang unik sebagai identifikasi resmi kenegaraan.
-*   **`gender`** (`string`): Jenis kelamin pengguna (nilai umum: `male` atau `female`).
-*   **`birth_date`** (`date`): Tanggal lahir pengguna, digunakan untuk menghitung umur pasien atau dokter secara dinamis.
-*   **`fcm_token`** (`string`, Nullable): Token perangkat Firebase Cloud Messaging (FCM) untuk memfasilitasi pengiriman push notification langsung ke perangkat mobile pengguna.
+*   **`national_id`** (`string`, Unique Key): Nomor Induk Kependudukan (NIK) unik sebagai identifikasi resmi kenegaraan.
+*   **`gender`** (`enum`): Jenis kelamin pengguna. Nilai valid: `Laki-laki`, `Perempuan`.
+*   **`birth_date`** (`date`): Tanggal lahir pengguna.
+*   **`fcm_token`** (`string`, Nullable): Token perangkat Firebase Cloud Messaging (FCM) untuk pengiriman push notification ke perangkat mobile. Diperbarui via endpoint `POST /api/auth/fcm-token`.
 *   **`created_at`** (`timestamp`): Waktu pertama kali data pengguna dibuat di sistem.
 *   **`updated_at`** (`timestamp`): Waktu terakhir kali data pengguna diperbarui.
-*   **`deleted_at`** (`timestamp`, Nullable): Waktu ketika data pengguna dihapus secara logis (*soft delete*), memungkinkan pemulihan data jika diperlukan tanpa benar-benar menghapusnya dari database.
+*   **`deleted_at`** (`timestamp`, Nullable): Waktu ketika data pengguna dihapus secara logis (*soft delete*).
 
 ---
 
@@ -687,19 +708,19 @@ Tabel untuk mencatat hari ketika dokter sedang cuti atau berhalangan hadir sehin
 Tabel inti sistem yang mengatur antrean pelayanan pasien di setiap poliklinik pada tanggal tertentu.
 
 *   **`id`** (`bigint`, Primary Key): ID unik otomatis antrean kunjungan.
-*   **`patient_id`** (`bigint`, Foreign Key): Referensi ke `patients.id` yang menandakan pasien pemilik tiket antrean.
-*   **`polyclinic_id`** (`bigint`, Foreign Key): Referensi ke `polyclinics.id` yang menunjukkan poliklinik tujuan pelayanan.
-*   **`doctor_id`** (`bigint`, Foreign Key): Referensi ke `doctors.id` yang menunjukkan dokter yang bertugas melayani antrean ini.
-*   **`doctor_schedule_id`** (`bigint`, Foreign Key): Referensi ke `doctor_schedules.id` untuk mencocokkan dengan sesi jadwal dokter.
-*   **`queue_number`** (`string`): Nomor antrean pasien (contoh: `A-01`, `B-12`). Memiliki indeks unik komposit bersama `date` dan `polyclinic_id` untuk mencegah duplikasi nomor antrean di poliklinik yang sama pada hari yang sama.
+*   **`patient_id`** (`bigint`, Foreign Key): Referensi ke `patients.id` yang menandakan pasien pemilik tiket antrean (cascade delete).
+*   **`polyclinic_id`** (`bigint`, Foreign Key): Referensi ke `polyclinics.id` yang menunjukkan poliklinik tujuan pelayanan (cascade delete).
+*   **`doctor_id`** (`bigint`, Foreign Key): Referensi ke `doctors.id` yang menunjukkan dokter yang bertugas melayani antrean ini (cascade delete).
+*   **`doctor_schedule_id`** (`bigint`, Foreign Key, Nullable): Referensi opsional ke `doctor_schedules.id`. Nullable untuk mendukung registrasi walk-in tanpa memilih slot jadwal.
+*   **`queue_number`** (`string`): Nomor antrean pasien yang diformat berdasarkan kode poliklinik (contoh: `GIG-001`, `UMM-003`). Memiliki indeks unik komposit `(queue_number, date, polyclinic_id)` untuk mencegah duplikasi nomor antrean di poliklinik yang sama pada hari yang sama.
 *   **`date`** (`date`): Tanggal dilaksanakannya kunjungan/antrean.
-*   **`status`** (`string`): Status alur pelayanan antrean (contoh: `pending`, `calling`, `serving`, `completed`, `skipped`).
-*   **`check_in_time`** (`timestamp`, Nullable): Waktu presensi fisik pasien di loket puskesmas untuk mengaktifkan antreannya.
-*   **`called_time`** (`timestamp`, Nullable): Waktu pemanggilan nomor antrean oleh petugas medis untuk masuk ke ruang periksa.
-*   **`is_priority`** (`boolean`): Indikator penanda pasien prioritas (lanjut usia, balita, ibu hamil, atau penyandang disabilitas) agar mendapat penanganan lebih cepat.
+*   **`status`** (`enum`): Status alur pelayanan antrean. Nilai valid: `booked` (terdaftar, belum check-in), `waiting` (sudah check-in, antri di ruang tunggu), `examining` (sedang diperiksa dokter), `completed` (selesai diperiksa), `cancelled` (dibatalkan).
+*   **`check_in_time`** (`timestamp`, Nullable): Waktu presensi fisik pasien di loket puskesmas via scan QR code untuk mengubah status menjadi `waiting`.
+*   **`called_time`** (`timestamp`, Nullable): Waktu pemanggilan nomor antrean oleh petugas untuk masuk ke ruang periksa (otomatis diisi saat status berubah ke `examining`).
+*   **`is_priority`** (`boolean`, default: `false`): Indikator pasien prioritas (lanjut usia, balita, ibu hamil, penyandang disabilitas). Jika `true`, pasien diprioritaskan di depan antrian reguler.
 *   **`reason`** (`string`, Nullable): Alasan kunjungan/keluhan awal pasien saat mendaftar antrean secara mandiri.
-*   **`recall_count`** (`integer`): Jumlah pemanggilan ulang yang dilakukan oleh dokter apabila pasien tidak kunjung hadir saat nomor antreannya dipanggil (default: `0`).
-*   **`estimated_service_time`** (`time`): Estimasi waktu tunggu/pelayanan yang dihitung secara dinamis oleh sistem agar pasien dapat memperkirakan waktu kedatangan.
+*   **`recall_count`** (`integer`, default: `0`): Jumlah pemanggilan ulang (recall) yang dilakukan petugas apabila pasien tidak hadir saat nomor antreannya dipanggil.
+*   **`estimated_service_time`** (`time`, Nullable): Estimasi jam pelayanan yang dihitung secara adaptif oleh sistem (`Queue::calculateEstimatedServiceTime()`) berdasarkan posisi antrian dan rata-rata durasi pemeriksaan hari ini.
 *   **`created_at`** (`timestamp`): Waktu pemesanan/pendaftaran antrean oleh pasien.
 *   **`updated_at`** (`timestamp`): Waktu pembaruan data/status antrean.
 *   **`deleted_at`** (`timestamp`, Nullable): Penanda waktu pembatalan antrean (*soft delete*).
@@ -754,18 +775,18 @@ Tabel detail penulisan resep obat yang merupakan bagian dari rekam pemeriksaan p
 Tabel transaksi keuangan yang mencatat tagihan pendaftaran, tagihan obat, dan riwayat status transaksi pembayaran pasien.
 
 *   **`id`** (`bigint`, Primary Key): ID unik transaksi pembayaran.
-*   **`queue_id`** (`bigint`, Foreign Key): Referensi ke `queues.id` untuk melacak kunjungan yang dibayarkan.
-*   **`examination_id`** (`bigint`, Foreign Key, Nullable): Referensi ke `examinations.id` untuk memfasilitasi penagihan setelah pemeriksaan medis selesai (seperti biaya obat dari resep).
+*   **`queue_id`** (`bigint`, Foreign Key): Referensi ke `queues.id` untuk melacak kunjungan yang dibayarkan (cascade delete).
+*   **`examination_id`** (`bigint`, Foreign Key, Nullable): Referensi ke `examinations.id` untuk memfasilitasi penagihan setelah pemeriksaan medis selesai. Bersifat `nullable` — jika pasien hanya membayar biaya pendaftaran (tanpa resep obat). Menggunakan `set null` on delete.
 *   **`transaction_number`** (`string`, Unique Key): Nomor transaksi keuangan unik (contoh: `INV-20260603-0021`) sebagai bukti invoice resmi.
-*   **`registration_fee`** (`decimal`): Biaya dasar pendaftaran administrasi puskesmas.
-*   **`medicine_fee`** (`decimal`): Akumulasi total harga obat-obatan yang ditebus dari resep terkait.
+*   **`registration_fee`** (`decimal`, default: `10000.00`): Biaya dasar pendaftaran administrasi puskesmas, dikonfigurasi melalui tabel `settings`.
+*   **`medicine_fee`** (`decimal`, default: `0.00`): Akumulasi total harga obat-obatan yang ditebus dari resep terkait. Nol jika tidak ada resep.
 *   **`total_amount`** (`decimal`): Jumlah keseluruhan uang yang harus dibayar (`registration_fee` + `medicine_fee`).
-*   **`payment_method`** (`string`): Pilihan metode pembayaran (contoh: `cash` (tunai), `qris` (digital), atau penjaminan `bpjs`).
-*   **`payment_proof`** (`string`, Nullable): Path file atau URL foto bukti transfer/pembayaran digital yang diunggah oleh pasien atau di-scan di kasir.
-*   **`status`** (`string`): Status pembayaran saat ini (contoh: `pending`, `paid`, `refunded`, `canceled`).
-*   **`paid_at`** (`timestamp`, Nullable): Waktu tepat pembayaran telah diterima dan divalidasi lunas oleh kasir atau sistem.
-*   **`dispensed_at`** (`timestamp`, Nullable): Waktu serah terima obat oleh apoteker kepada pasien yang menandai berakhirnya siklus kunjungan antrean.
-*   **`created_at`** (`timestamp`): Waktu pembuatan draf invoice pembayaran.
+*   **`payment_method`** (`string`, default: `transfer_bank`): Pilihan metode pembayaran. Nilai yang umum: `cash` (tunai), `transfer_bank`, `qris`, `bpjs`.
+*   **`payment_proof`** (`longtext`, Nullable): **Base64 Data URI** gambar bukti pembayaran (format: `data:image/jpeg;base64,...`). Disimpan di database (bukan filesystem) karena Railway menggunakan *ephemeral filesystem* yang tidak persisten.
+*   **`status`** (`enum`): Status pembayaran saat ini. Nilai valid: `pending` (awal), `waiting_verification` (bukti bayar terupload), `paid` (lunas), `failed` (gagal/ditolak).
+*   **`paid_at`** (`timestamp`, Nullable): Waktu tepat pembayaran telah diterima dan divalidasi lunas.
+*   **`dispensed_at`** (`timestamp`, Nullable): Waktu serah terima obat oleh apoteker kepada pasien. Diisi saat apoteker menekan tombol dispense.
+*   **`created_at`** (`timestamp`): Waktu pembuatan draf invoice pembayaran (otomatis dibuat saat dokter menyimpan rekam medis).
 *   **`updated_at`** (`timestamp`): Waktu pembaruan status transaksi.
 *   **`deleted_at`** (`timestamp`, Nullable): Penanda waktu pembatalan tagihan (*soft delete*).
 
@@ -800,22 +821,24 @@ Tabel berbaris tunggal (*single row*) atau sedikit baris yang menyimpan informas
 ---
 
 ### 14. Tabel `settings`
-Tabel pengaturan konfigurasi dinamis aplikasi bertipe *key-value pair*.
+Tabel pengaturan konfigurasi operasional dinamis puskesmas bertipe *key-value pair*.
 
 *   **`id`** (`bigint`, Primary Key): ID unik pengaturan.
-*   **`key`** (`string`, Unique Key): Nama identifikasi unik pengaturan (contoh: `max_queue_per_day`, `allow_priority_queue`).
-*   **`value`** (`text`): Nilai atau konfigurasi dari kunci tersebut (contoh: `150`, `true`).
+*   **`key`** (`string`, Unique Key): Nama identifikasi unik pengaturan. Kunci yang saat ini digunakan:
+    *   `registration_fee` — Biaya pendaftaran dasar (default: `10000`).
+    *   `slot_duration_minutes` — Estimasi durasi per slot pemeriksaan dalam menit (default: `15`). Digunakan oleh `QueueService` untuk kalkulasi estimasi waktu tunggu.
+*   **`value`** (`text`): Nilai string dari konfigurasi terkait.
 *   **`created_at`** (`timestamp`): Waktu pembuatan kunci konfigurasi.
 *   **`updated_at`** (`timestamp`): Waktu terakhir kali konfigurasi diubah.
 
 ---
 
 ### 15. Tabel `password_reset_otps`
-Tabel yang menampung data sementara untuk verifikasi kode OTP (*One-Time Password*) saat pengguna melakukan reset password yang terlupa.
+Tabel yang menampung data sementara untuk verifikasi kode OTP (*One-Time Password*) saat pengguna melakukan reset password.
 
 *   **`id`** (`bigint`, Primary Key): ID unik record OTP.
 *   **`email`** (`string`): Alamat email pengguna yang meminta pemulihan akun.
-*   **`otp_code`** (`string`): Kode OTP unik (biasanya terdiri dari 6 karakter numerik acak).
-*   **`expires_at`** (`timestamp`): Waktu kedaluwarsa kode OTP (misal: 15 menit dari waktu pengiriman).
+*   **`otp_code`** (`string`): Kode OTP 6 digit numerik yang dikirimkan via email.
+*   **`expires_at`** (`timestamp`): Waktu kedaluwarsa kode OTP.
 *   **`created_at`** (`timestamp`): Waktu pengiriman kode OTP ke email pengguna.
 *   **`updated_at`** (`timestamp`): Waktu pembaruan data record OTP.

@@ -3308,8 +3308,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Hapus Pengguna (Dinonaktifkan)",
-        "description": "Berdasarkan kebijakan sistem terbaru, penghapusan langsung user oleh Admin dilarang keras untuk menjaga keamanan audit trail (selalu mengembalikan 403).",
+        "summary": "Hapus Pengguna (Soft Delete)",
+        "description": "Hanya diizinkan untuk Admin. Menghapus akun pengguna secara lunak (soft delete). **Proteksi:** Admin tidak diperkenankan menghapus dirinya sendiri maupun sesama Admin (mengembalikan 403). Pengguna yang terhapus dapat dipulihkan via endpoint restore.",
         "security": [
           {
             "sanctumAuth": []
@@ -3326,8 +3326,11 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "User berhasil dihapus (soft delete)"
+          },
           "403": {
-            "description": "Akses ditolak. Kebijakan baru melarang penghapusan user oleh Admin."
+            "description": "Akses ditolak — target adalah Admin atau diri sendiri"
           }
         }
       }
@@ -3534,7 +3537,7 @@
                   "payment_proof": {
                     "type": "string",
                     "format": "binary",
-                    "description": "File gambar bukti transfer (jpeg, png, pdf, maks 2MB)"
+                    "description": "File gambar bukti transfer (jpeg, png, jpg — maks 2MB). Akan disimpan sebagai Base64 di database."
                   }
                 }
               }
@@ -3672,16 +3675,81 @@
         }
       }
     },
+    "/api/payments/{id}/proof-image": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Tampilkan Gambar Bukti Pembayaran",
+        "description": "Endpoint **publik** (tanpa autentikasi) yang mengembalikan gambar bukti pembayaran yang tersimpan sebagai Base64 Data URI di database. Digunakan oleh Admin Flutter untuk menampilkan gambar bukti transfer tanpa memerlukan token.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "ID Payment"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary image response dengan header Content-Type: image/jpeg atau image/png",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bukti pembayaran belum diunggah atau data payment tidak ditemukan"
+          }
+        }
+      }
+    },
     "/api/medicines": {
       "get": {
         "tags": [
           "Pharmacy & Medicines"
         ],
         "summary": "Ambil Semua Daftar Obat",
-        "description": "Mengambil semua katalog obat aktif di apotek klinik (stok, harga, satuan).",
+        "description": "Mengambil semua katalog obat aktif di apotek klinik (stok, harga, satuan). Mendukung pencarian nama dan paginasi.",
         "security": [
           {
             "sanctumAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Filter berdasarkan nama obat"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "Aktifkan paginasi dengan menentukan nomor halaman"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 20 },
+            "description": "Jumlah data per halaman (default: 20)"
           }
         ],
         "responses": {
@@ -4277,7 +4345,8 @@
             "enum": [
               "admin",
               "doctor",
-              "patient"
+              "patient",
+              "pharmacist"
             ],
             "example": "patient"
           },
@@ -4670,7 +4739,8 @@
           "payment_proof": {
             "type": "string",
             "nullable": true,
-            "example": "payment_proofs/proof_image.png"
+            "description": "Base64 Data URI gambar bukti pembayaran (format: data:image/jpeg;base64,...). Disimpan di database karena Railway ephemeral filesystem.",
+            "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA..."
           },
           "status": {
             "type": "string",
@@ -4678,8 +4748,7 @@
               "pending",
               "waiting_verification",
               "paid",
-              "refunded",
-              "canceled"
+              "failed"
             ],
             "example": "waiting_verification"
           },
