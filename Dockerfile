@@ -50,5 +50,6 @@ CMD sed -i "s/listen 80;/listen ${PORT:-80};/g" /etc/nginx/http.d/default.conf &
     php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
+    php artisan storage:link --force && \
     php artisan migrate --force && \
     /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

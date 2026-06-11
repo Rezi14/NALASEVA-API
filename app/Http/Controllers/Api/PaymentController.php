@@ -182,4 +182,29 @@ class PaymentController extends Controller
             return $this->errorResponse('Gagal memproses pembayaran tunai: ' . $e->getMessage(), 500);
         }
     }
+
+    public function getProofImage($id)
+    {
+        try {
+            $payment = Payment::findOrFail($id);
+
+            if (!$payment->payment_proof) {
+                return response()->json(['message' => 'Bukti pembayaran belum diunggah.'], 404);
+            }
+
+            if (!Storage::disk('public')->exists($payment->payment_proof)) {
+                return response()->json(['message' => 'File bukti pembayaran tidak ditemukan.'], 404);
+            }
+
+            $file = Storage::disk('public')->get($payment->payment_proof);
+            $mimeType = Storage::disk('public')->mimeType($payment->payment_proof);
+
+            return response($file, 200)
+                ->header('Content-Type', $mimeType)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gagal mengambil bukti pembayaran: ' . $e->getMessage()], 500);
+        }
+    }
 }

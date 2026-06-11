@@ -23,6 +23,7 @@ Route::post('auth/register', [AuthController::class, 'register'])->middleware('t
 Route::post('auth/forgot-password/otp', [AuthController::class, 'requestPasswordResetOtp'])->middleware('throttle:auth');
 Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 Route::get('puskesmas-profile', [PuskesmasProfileController::class, 'show']);
+Route::get('payments/{id}/proof-image', [PaymentController::class, 'getProofImage']);
 
 // --- Protected Routes ---
 Route::middleware('auth:sanctum')->group(function () {
