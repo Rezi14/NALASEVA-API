@@ -219,6 +219,8 @@ class PaymentController extends Controller
             }
 
             return response()->json(['message' => 'File bukti pembayaran tidak dapat diakses.'], 404);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['message' => 'Data pembayaran tidak ditemukan.'], 404);
         } catch (Exception $e) {
             return response()->json(['message' => 'Gagal mengambil bukti pembayaran: ' . $e->getMessage()], 500);
         }
