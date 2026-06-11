@@ -15,19 +15,44 @@ class FirebaseNotificationService
     {
         try {
             $firebaseCredentials = config('firebase.credentials');
-            // Jika dikonfigurasi melalui ENV FIREBASE_CREDENTIALS
-            if (!$firebaseCredentials && env('FIREBASE_CREDENTIALS')) {
-                $firebaseCredentials = base_path(env('FIREBASE_CREDENTIALS'));
+            
+            // Jika tidak dikonfigurasi dari config, cek env
+            if (!$firebaseCredentials) {
+                $firebaseCredentials = env('FIREBASE_CREDENTIALS');
             }
 
-            if ($firebaseCredentials && file_exists($firebaseCredentials)) {
-                $factory = (new Factory)->withServiceAccount($firebaseCredentials);
-                $this->messaging = $factory->createMessaging();
+            if ($firebaseCredentials) {
+                // Jika berupa JSON string
+                if (is_string($firebaseCredentials) && str_starts_with(trim($firebaseCredentials), '{')) {
+                    $credentialsData = json_decode($firebaseCredentials, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $factory = (new Factory)->withServiceAccount($credentialsData);
+                        $this->messaging = $factory->createMessaging();
+                    } else {
+                        $this->safeLogWarning('Firebase credentials JSON string is invalid');
+                    }
+                } 
+                // Jika berupa file path
+                else {
+                    // Jika path relatif, sesuaikan dengan base_path
+                    if (is_string($firebaseCredentials) && !str_starts_with($firebaseCredentials, '/')) {
+                        $fullPath = base_path($firebaseCredentials);
+                    } else {
+                        $fullPath = $firebaseCredentials;
+                    }
+
+                    if (file_exists($fullPath)) {
+                        $factory = (new Factory)->withServiceAccount($fullPath);
+                        $this->messaging = $factory->createMessaging();
+                    } else {
+                        $this->safeLogWarning('Firebase credentials file not found at: ' . $fullPath);
+                    }
+                }
             } else {
-                Log::warning('Firebase credentials file not found at: ' . $firebaseCredentials);
+                $this->safeLogWarning('Firebase credentials are not configured');
             }
         } catch (\Exception $e) {
-            Log::error('Firebase Initialization Error: ' . $e->getMessage());
+            $this->safeLogError('Firebase Initialization Error: ' . $e->getMessage());
         }
     }
 
@@ -43,7 +68,7 @@ class FirebaseNotificationService
     public function sendToToken($token, $title, $body, $data = [])
     {
         if (!$this->messaging || empty($token)) {
-            Log::info('Notification skipped. Messaging service not initialized or token is empty. Title: ' . $title);
+            $this->safeLogInfo('Notification skipped. Messaging service not initialized or token is empty. Title: ' . $title);
             return false;
         }
 
@@ -57,8 +82,38 @@ class FirebaseNotificationService
             $this->messaging->send($message);
             return true;
         } catch (\Exception $e) {
-            Log::error('FCM Send Error: ' . $e->getMessage());
+            $this->safeLogError('FCM Send Error: ' . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Safe log helpers to prevent crashes when log file permissions are invalid.
+     */
+    protected function safeLogWarning($message)
+    {
+        try {
+            Log::warning($message);
+        } catch (\Exception $e) {
+            error_log('FirebaseNotificationService Warning: ' . $message);
+        }
+    }
+
+    protected function safeLogError($message)
+    {
+        try {
+            Log::error($message);
+        } catch (\Exception $e) {
+            error_log('FirebaseNotificationService Error: ' . $message);
+        }
+    }
+
+    protected function safeLogInfo($message)
+    {
+        try {
+            Log::info($message);
+        } catch (\Exception $e) {
+            error_log('FirebaseNotificationService Info: ' . $message);
         }
     }
 }

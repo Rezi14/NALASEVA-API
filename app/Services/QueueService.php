@@ -292,7 +292,11 @@ class QueueService
                         "Pemeriksaan Anda di {$polyName} telah selesai. Semoga lekas sembuh!", $notifData);
                 }
             } catch (\Exception $e) {
-                Log::error('FCM Queue Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
+                try {
+                    Log::error('FCM Queue Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
+                } catch (\Exception $logEx) {
+                    error_log('FCM Queue Notification Error: ' . $e->getMessage() . ' | Queue ID: ' . $id);
+                }
             }
         }
 
@@ -346,7 +350,11 @@ class QueueService
                     "Antrean Anda di {$polyName} (No. {$queueNum}) telah dibatalkan.",
                     ['type' => 'queue_updated', 'queue_id' => (string)$id, 'status' => 'cancelled']);
             } catch (\Exception $e) {
-                Log::error('FCM Cancellation Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
+                try {
+                    Log::error('FCM Cancellation Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
+                } catch (\Exception $logEx) {
+                    error_log('FCM Cancellation Notification Error: ' . $e->getMessage() . ' | Queue ID: ' . $id);
+                }
             }
         }
 
@@ -398,7 +406,11 @@ class QueueService
                     "Kehadiran Anda di {$polyName} telah diverifikasi. No. Antrean: {$queueNum}. Mohon tunggu giliran Anda.",
                     ['type' => 'queue_updated', 'queue_id' => (string)$queue->id, 'status' => 'waiting']);
             } catch (\Exception $e) {
-                Log::error('FCM CheckIn Notification Error: ' . $e->getMessage(), ['queue_id' => $queue->id]);
+                try {
+                    Log::error('FCM CheckIn Notification Error: ' . $e->getMessage(), ['queue_id' => $queue->id]);
+                } catch (\Exception $logEx) {
+                    error_log('FCM CheckIn Notification Error: ' . $e->getMessage() . ' | Queue ID: ' . $queue->id);
+                }
             }
         }
 
