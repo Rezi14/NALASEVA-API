@@ -267,16 +267,6 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data dokter berhasil dikembalikan"<br>}</code></pre> |
 | | Keterangan | Memulihkan data dokter dan mengaktifkan kembali akun login dokter terkait. |
 | --- | --- | --- |
-| **24** | Nama | Ambil Profil Dokter Aktif |
-| | URL | `/api/doctors/profile` |
-| | Method | `GET` |
-| | Type | Protected |
-| | Authentifikasi | Ya (Bearer Token) |
-| | Authorisasi | `doctor` |
-| | Parameters | Tidak ada |
-| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 1, "specialization": "Gigi", "user": { "name": "Dr. Dian", ... } }<br>}</code></pre> |
-| | Keterangan | Diambil oleh dokter yang sedang login untuk melihat data penugasan kliniknya sendiri. |
-| --- | --- | --- |
 | **25** | Nama | Perbarui Status Online Dokter |
 | | URL | `/api/doctors/me/status` |
 | | Method | `PATCH` |

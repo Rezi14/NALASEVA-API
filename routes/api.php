@@ -110,7 +110,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Doctor-Only Dedicated Features ---
     Route::middleware('role:doctor')->group(function () {
-        Route::get('doctors/profile', [DoctorController::class, 'myProfile']);
         Route::patch('doctors/me/status', [DoctorController::class, 'updateStatus']);
     });
 

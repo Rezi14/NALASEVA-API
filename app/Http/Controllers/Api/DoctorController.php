@@ -42,16 +42,6 @@ class DoctorController extends Controller
         }
     }
 
-    public function myProfile(Request $request)
-    {
-        $doctor = Doctor::where('user_id', $request->user()->id)->first();
-        if (!$doctor) {
-            return $this->errorResponse('Data profil dokter tidak ditemukan', 404);
-        }
-        $doctor->load(['user', 'polyclinic']);
-        return $this->successResponse(new DoctorResource($doctor), 'Profil dokter berhasil diambil');
-    }
-
     public function updateStatus(Request $request)
     {
         $validator = Validator::make($request->all(), [
