@@ -245,7 +245,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `name` (string, optional)<br>- `specialization` (string, optional)<br>- `phone` (string, optional)<br>- `address` (string, optional)<br>- `polyclinic_id` (integer, optional)<br>- `license_number` (string, optional)<br>- `national_id` (string, optional, unique NIK, 16 digit)<br>- `gender` (string, optional, "Laki-laki"/"Perempuan")<br>- `birth_date` (string, optional, format YYYY-MM-DD) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data dokter berhasil diperbarui"<br>}</code></pre> |
-| | Keterangan | Memperbarui profil dan penugasan poliklinik dokter terdaftar. |
+| | Keterangan | Memperbarui profil dan penugasan poliklinik dokter terdaftar. Jika `polyclinic_id` diubah, sistem divalidasi agar memblokir pembaruan apabila dokter masih memiliki antrean aktif (`booked`, `waiting`, `examining`) di poliklinik lama. |
 | --- | --- | --- |
 | **22** | Nama | Hapus Akun Dokter |
 | | URL | `/api/doctors/{id}` |
@@ -255,7 +255,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Dokter dan akun berhasil dihapus"<br>}</code></pre> |
-| | Keterangan | Menghapus secara lunak data dokter beserta user login-nya (*soft delete*). |
+| | Keterangan | Menghapus secara lunak data dokter beserta user login-nya (*soft delete*). Penghapusan diblokir jika dokter tersebut masih memiliki antrean aktif. Dilengkapi transaksi cascading: menghapus profil dokter juga otomatis menghapus akun `users` login-nya. |
 | --- | --- | --- |
 | **23** | Nama | Pulihkan Akun Dokter Terhapus |
 | | URL | `/api/doctors/{id}/restore` |
@@ -265,7 +265,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Data dokter berhasil dikembalikan"<br>}</code></pre> |
-| | Keterangan | Memulihkan data dokter dan mengaktifkan kembali akun login dokter terkait. |
+| | Keterangan | Memulihkan data dokter dan mengaktifkan kembali akun login dokter terkait. Memiliki cascading action: mengembalikan data dokter otomatis memulihkan akun `users` terkait. |
 | --- | --- | --- |
 | **25** | Nama | Perbarui Status Online Dokter |
 | | URL | `/api/doctors/me/status` |
@@ -315,7 +315,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required)<br>**Request Body (JSON):**<br>- `doctor_id` (integer, optional)<br>- `day_of_week` (string, optional)<br>- `start_time` (string, optional, HH:MM)<br>- `end_time` (string, optional, HH:MM) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Jadwal berhasil diperbarui"<br>}</code></pre> |
-| | Keterangan | Memperbarui jam shift dokter yang sudah terdaftar. |
+| | Keterangan | Memperbarui jam shift dokter yang sudah terdaftar. Perubahan hari/jam praktik diblokir jika jadwal tersebut saat ini memiliki antrean aktif pasien. |
 | --- | --- | --- |
 | **30** | Nama | Hapus Jadwal Praktik |
 | | URL | `/api/doctor-schedules/{id}` |
@@ -325,7 +325,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Jadwal berhasil dihapus"<br>}</code></pre> |
-| | Keterangan | Menghapus shift praktik dokter secara lunak. |
+| | Keterangan | Menghapus shift praktik dokter secara lunak. Penghapusan diblokir jika jadwal tersebut sedang digunakan oleh antrean aktif pasien. |
 | --- | --- | --- |
 | **31** | Nama | Pulihkan Jadwal Terhapus |
 | | URL | `/api/doctor-schedules/{id}/restore` |
@@ -351,7 +351,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | Semua Pengguna Terautentikasi |
 | | Parameters | Tidak ada |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": [<br>    { "id": 1, "holiday_date": "2026-06-25", "description": "Hari Raya" }<br>  ]<br>}</code></pre> |
-| | Keterangan | Mengambil daftar hari libur operasional puskesmas (sejak hari ini ke depan). |
+| | Keterangan | Mengambil daftar hari libur operasional puskesmas. Khusus non-admin, daftar dibatasi dari hari ini ke depan (`holiday_date >= today`). Admin dapat melihat data historis masa lalu. |
 | --- | --- | --- |
 | **33** | Nama | Ambil Detail Hari Libur |
 | | URL | `/api/clinic-holidays/{id}` |
@@ -371,7 +371,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Request Body (JSON):**<br>- `holiday_date` (string, required, format YYYY-MM-DD)<br>- `description` (string, optional) |
 | | Return value | `201 Created`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 2, "holiday_date": "2026-06-25", ... }<br>}</code></pre> |
-| | Keterangan | Mendaftarkan hari libur klinik baru. Membatalkan ketersediaan booking antrean pasien pada tanggal tersebut. |
+| | Keterangan | Mendaftarkan hari libur klinik baru. Secara otomatis membatalkan (`status = cancelled`) seluruh antrean aktif (`booked` atau `waiting`) pada tanggal libur tersebut, mengirim notifikasi push FCM pembatalan massal kepada pasien, dan memicu kalkulasi ulang estimasi jam pelayanan. |
 | --- | --- | --- |
 | **35** | Nama | Perbarui Hari Libur Klinik |
 | | URL | `/api/clinic-holidays/{id}` |
@@ -401,7 +401,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | Semua Pengguna Terautentikasi |
 | | Parameters | **Query Parameter:**<br>- `doctor_id` (integer, optional, filter cuti dokter tertentu) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": [<br>    { "id": 1, "doctor_id": 1, "leave_date": "2026-06-01", "reason": "Sakit" }<br>  ]<br>}</code></pre> |
-| | Keterangan | Mengambil rencana cuti dokter di puskesmas. |
+| | Keterangan | Mengambil rencana cuti dokter di puskesmas. Khusus non-admin, daftar dibatasi dari hari ini ke depan (`leave_date >= today`). Admin dapat melihat seluruh data cuti historis masa lalu. |
 | --- | --- | --- |
 | **38** | Nama | Ambil Detail Cuti Dokter |
 | | URL | `/api/doctor-leaves/{id}` |
@@ -421,7 +421,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Request Body (JSON):**<br>- `doctor_id` (integer, required)<br>- `leave_date` (string, required, format YYYY-MM-DD)<br>- `reason` (string, optional) |
 | | Return value | `201 Created`:<br><pre><code>{<br>  "status": "success",<br>  "data": { "id": 2, "doctor_id": 1, "leave_date": "2026-06-01", ... }<br>}</code></pre> |
-| | Keterangan | Mendaftarkan hari absen/cuti dokter agar jadwal praktiknya diblokir pada tanggal terkait dan pasien tidak dapat memesan antrean dokter tersebut. |
+| | Keterangan | Mendaftarkan hari absen/cuti dokter agar jadwal praktiknya diblokir pada tanggal terkait. Secara otomatis membatalkan (`status = cancelled`) seluruh antrean aktif (`booked` atau `waiting`) milik dokter tersebut pada tanggal cutinya, mengirim notifikasi push FCM pembatalan ke handphone pasien, dan memicu kalkulasi ulang estimasi jam pelayanan. |
 | --- | --- | --- |
 | **40** | Nama | Perbarui Pengajuan Cuti Dokter |
 | | URL | `/api/doctor-leaves/{id}` |
@@ -593,7 +593,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Antrean berhasil digeser ke urutan paling belakang",<br>  "data": { ... }<br>}</code></pre> |
-| | Keterangan | Menggeser nomor antrean pasien yang terlewat/tidak hadir ke posisi paling akhir pada hari tersebut dan me-reset statusnya kembali ke `booked`. |
+| | Keterangan | Menggeser antrean pasien yang terlewat/tidak hadir ke posisi paling akhir pada hari tersebut dengan memperbarui `check_in_time` menjadi waktu sekarang dan mempertahankan statusnya tetap `waiting`. |
 | --- | --- | --- |
 | **56** | Nama | Panggil Ulang Antrean Pasien (Recall) |
 | | URL | `/api/queues/{id}/recall` |
@@ -603,7 +603,7 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Authorisasi | `admin` |
 | | Parameters | **Path Parameter:**<br>- `id` (integer, required) |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Nomor antrean berhasil dipanggil kembali",<br>  "data": { "id": 1, "recall_count": 1, ... }<br>}</code></pre> |
-| | Keterangan | Memanggil kembali nomor urut antrean pasien ke pengeras suara dan menambahkan nilai `recall_count`. |
+| | Keterangan | Memanggil kembali nomor urut antrean pasien ke pengeras suara dan menambahkan nilai `recall_count`. Jika panggilan ulang mencapai 3x, sistem otomatis me-reset status antrean kembali ke `waiting`, mengosongkan `called_time`, dan memperbarui `check_in_time` ke waktu saat ini (menggeser pasien secara otomatis ke posisi paling belakang). |
 
 ---
 
@@ -755,6 +755,16 @@ Dokumen ini berisi daftar lengkap dan penjelasan detail seluruh endpoint API yan
 | | Parameters | Tidak ada |
 | | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "data": [<br>    { "id": 5, "queue_number": "POL-003", "patient_name": "Budi", "status_pembayaran": "paid" }<br>  ]<br>}</code></pre> |
 | | Keterangan | Apoteker melihat daftar resep pasien yang sudah selesai diperiksa dan siap diracik serta diserahkan. |
+| --- | --- | --- |
+| **68b** | Nama | Panggil Pasien Apotek |
+| | URL | `/api/pharmacy/queues/{id}/call` |
+| | Method | `POST` |
+| | Type | Protected |
+| | Authentifikasi | Ya (Bearer Token) |
+| | Authorisasi | `admin`, `pharmacist` |
+| | Parameters | **Path Parameter:**<br>- `id` (integer, required, **ID Payment** — bukan ID antrean) |
+| | Return value | `200 OK`:<br><pre><code>{<br>  "status": "success",<br>  "message": "Panggilan suara loket apotek dikirim dan notifikasi dikirim ke pasien."<br>}</code></pre> |
+| | Keterangan | Apoteker memicu panggilan suara di loket apotek dan secara otomatis mengirim notifikasi push FCM ke perangkat pasien untuk mengambil obat. |
 | --- | --- | --- |
 | **69** | Nama | Penyerahan Obat Pasien |
 | | URL | `/api/pharmacy/queues/{id}/dispense` |

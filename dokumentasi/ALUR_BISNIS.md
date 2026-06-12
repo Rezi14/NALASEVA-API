@@ -165,6 +165,8 @@ Modul ini bertugas memastikan obat diserahkan kepada pasien yang berhak dan inve
 
 *   **Antrean Resep Apotek (`GET /api/pharmacy/queues`)**:
     Menampilkan daftar resep obat yang pembayarannya berstatus `paid` (lunas) dan belum pernah diserahkan (`dispensed_at` bernilai `null`).
+*   **Pemanggilan Pengambilan Obat (`POST /api/pharmacy/queues/{id}/call`)**:
+    Apoteker memanggil pasien ke loket pengambilan obat. Sistem secara otomatis mengirimkan push notification FCM ke handphone pasien (*"Panggilan kepada pasien [Nama Pasien], silakan mengambil obat Anda di loket Apotek"*) dan memicu pengumuman panggilan suara di loket apoteker.
 *   **Penyerahan Obat (*Dispensing* - `POST /api/pharmacy/queues/{id}/dispense`)**:
     Apoteker menyerahkan obat fisik kepada pasien dan memicu transaksi database berikut:
     *   **Validasi Ketersediaan Stok**: Sistem memverifikasi stok obat di tabel `medicines`. Jika stok salah satu obat dalam resep kurang dari jumlah yang diminta (`medicines.stock < quantity`), sistem menolak transaksi dengan status error 422 dan pesan obat tidak mencukupi.
