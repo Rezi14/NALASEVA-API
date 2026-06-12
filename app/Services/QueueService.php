@@ -453,11 +453,44 @@ class QueueService
 
                 Queue::recalculateEstimatedTimes($queue->polyclinic_id, $queue->date);
 
+                // Kirim notifikasi dilewati ke pasien via FCM
+                $fcmToken = $queue->patient?->user?->fcm_token ?? null;
+                if ($fcmToken) {
+                    try {
+                        $firebaseService = new \App\Services\FirebaseNotificationService();
+                        $firebaseService->sendToToken(
+                            $fcmToken,
+                            '⚠️ Antrean Dilewati',
+                            "Anda tidak hadir setelah dipanggil 3 kali. Antrean Anda digeser ke urutan paling belakang.",
+                            ['type' => 'queue_updated', 'queue_id' => (string)$queue->id, 'status' => 'waiting']
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('FCM Skip Notification Error: ' . $e->getMessage(), ['queue_id' => $queue->id]);
+                    }
+                }
+
                 return $queue->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
             });
         }
 
         $queue->increment('recall_count');
+        
+        // Kirim notifikasi panggilan ulang ke pasien via FCM
+        $fcmToken = $queue->patient?->user?->fcm_token ?? null;
+        if ($fcmToken) {
+            try {
+                $firebaseService = new \App\Services\FirebaseNotificationService();
+                $firebaseService->sendToToken(
+                    $fcmToken,
+                    '🔔 Panggilan Antrean',
+                    "Nomor antrean {$queue->queue_number} sedang dipanggil. Silakan segera menuju ruang periksa.",
+                    ['type' => 'queue_updated', 'queue_id' => (string)$queue->id, 'status' => 'examining']
+                );
+            } catch (\Exception $e) {
+                Log::error('FCM Recall Notification Error: ' . $e->getMessage(), ['queue_id' => $id]);
+            }
+        }
+
         return $queue->load(['patient.user', 'polyclinic', 'doctor.user', 'doctorSchedule']);
     }
 

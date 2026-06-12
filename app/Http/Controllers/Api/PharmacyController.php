@@ -89,4 +89,27 @@ class PharmacyController extends Controller
             return $this->errorResponse('Gagal menyerahkan resep obat: ' . $e->getMessage(), 500);
         }
     }
+
+    public function callPatient(Request $request, $paymentId)
+    {
+        try {
+            $payment = Payment::with(['queue.patient.user'])->findOrFail($paymentId);
+
+            $patientToken = $payment->queue?->patient?->user?->fcm_token ?? null;
+            if ($patientToken) {
+                $firebaseService = new \App\Services\FirebaseNotificationService();
+                $title = "Panggilan Apotek";
+                $body = "Panggilan kepada pasien " . ($payment->queue?->patient?->name ?? 'Pasien') . ", silakan mengambil obat Anda di loket Apotek.";
+                $firebaseService->sendToToken($patientToken, $title, $body, [
+                    'payment_id' => $payment->id,
+                    'status' => 'called',
+                    'type' => 'prescription_called'
+                ]);
+            }
+
+            return $this->successResponse(null, 'Panggilan suara loket apotek dikirim dan notifikasi dikirim ke pasien.');
+        } catch (Exception $e) {
+            return $this->errorResponse('Gagal memanggil pasien: ' . $e->getMessage(), 500);
+        }
+    }
 }

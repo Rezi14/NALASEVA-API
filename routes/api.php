@@ -156,6 +156,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,pharmacist')->group(function () {
         Route::get('pharmacy/queues', [PharmacyController::class, 'index']);
         Route::post('pharmacy/queues/{id}/dispense', [PharmacyController::class, 'dispense']);
+        Route::post('pharmacy/queues/{id}/call', [PharmacyController::class, 'callPatient']);
         
         // Medicines CRUD
         Route::post('medicines', [MedicineController::class, 'store']);
